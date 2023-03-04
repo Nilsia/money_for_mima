@@ -1,16 +1,11 @@
-# money_for_mima
+## Money For Mima
 
-A flutter project to manage your accounts
+Une application desktop destinée à la gestion de votre compte bancaire en local
 
-## Getting Started
+Cette application est pour le moment en cours de création
 
-This project is a starting point for a Flutter application.
+# Ajouts à effectuer
 
-A few resources to get you started if this is your first Flutter project:
+ - Implémentation d'un programme rust pour effectuer des tâches lors du démarrage du système d'exploitation
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+ - Une exécutable permettant d'installer Money For Mima simplement
