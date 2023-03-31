@@ -1,13 +1,10 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:money_for_mima/models/account.dart';
 import 'package:money_for_mima/models/action_item.dart';
 import 'package:money_for_mima/models/database_manager.dart';
 import 'package:money_for_mima/models/item_menu.dart';
-import 'package:money_for_mima/models/outsider.dart';
-import 'package:money_for_mima/models/transactions.dart';
+import 'package:money_for_mima/pages/due_page.dart';
 import 'package:money_for_mima/pages/transaction_page.dart';
 import 'package:money_for_mima/utils/tools.dart';
 
@@ -23,23 +20,6 @@ class _HomePageState extends State<HomePage> {
   PagesEnum currentPage = PagesEnum.home;
   List<Account> accountList = [];
 
-  /*[
-    Account(
-        1,
-        "test",
-        1200,
-        1000,
-        true,
-        [
-          Transactions(20.0, DateTime.now(), Outsider(1, "Carrefour"), false),
-          Transactions(-220.0, DateTime.now(), Outsider(1, "Carrefour"), true)
-        ],
-        [],
-        true),
-    Account(1, "compte bancaire principal", -4025155518661, -715, false, [], [],
-        false),
-  ];*/
-
   DateTime accountDate = DateTime.now();
   TextEditingController acNameCont = TextEditingController(),
       acBalanceCont = TextEditingController(),
@@ -53,14 +33,11 @@ class _HomePageState extends State<HomePage> {
     ActionItem("Ajouter", Icons.add, true, ActionItemEnum.add)
   ];
 
+  Offset _tapPosition = Offset.zero;
+
   @override
   void initState() {
-    db.init().then((value) async {
-      db.getAllAccounts().then((value) {
-        accountList = value;
-        setState(() {});
-      });
-    });
+    reloadAccountListSecure();
     initTextFieldsDialog();
     super.initState();
   }
@@ -132,23 +109,176 @@ class _HomePageState extends State<HomePage> {
                         ? const BorderSide(color: Colors.grey)
                         : BorderSide.none;
                     Account ac = accountList[i];
+                    final RenderObject? overlay =
+                        Overlay.of(context).context.findRenderObject();
+
+                    List<PopupMenuItem> items = [
+                      const PopupMenuItem(
+                        value: "transactions",
+                        child: Text("Opérations"),
+                      ),
+                      const PopupMenuItem(
+                        value: "due",
+                        child: Text("Occurences"),
+                      ),
+                      const PopupMenuItem(
+                        value: "edit",
+                        child: Text("Modifier"),
+                      ),
+                      const PopupMenuItem(
+                          value: "remove", child: Text("Supprimer"))
+                    ];
+
+                    if (!ac.selected) {
+                      items.add(const PopupMenuItem(
+                        value: "select",
+                        child: Text("Sélectionner pour les autres fois"),
+                      ));
+                    }
+
+                    if (!ac.favorite) {
+                      items.add(const PopupMenuItem(
+                        value: "favorite",
+                        child: Text("Marquer comme favori"),
+                      ));
+                    } else {
+                      items.add(const PopupMenuItem(
+                        value: "favorite",
+                        child: Text("Enlever des favoris"),
+                      ));
+                    }
 
                     return InkWell(
-                      onTap: () {
-                        Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                                pageBuilder: (_, __, ___) =>
-                                    TransactionPage(ac.id)));
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                            border: Border(bottom: borderBetween)),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 4.0, horizontal: 8),
-                          child: Row(
-                            children: generateAccountItem(ac),
+                      mouseCursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onSecondaryTapDown: _getTapPosition,
+                        onSecondaryTap: () async {
+                          await showMenu(
+                                  context: context,
+                                  position: RelativeRect.fromRect(
+                                      Rect.fromLTWH(_tapPosition.dx,
+                                          _tapPosition.dy, 30, 30),
+                                      Rect.fromLTWH(
+                                          0,
+                                          0,
+                                          overlay!.paintBounds.size.width,
+                                          overlay.paintBounds.size.height)),
+                                  items: items)
+                              .then((res) async {
+                            switch (res) {
+                              case "select":
+                                // item selected
+                                if (ac.selected) {
+                                  Tools.showNormalSnackBar(context,
+                                      "Vous ne pouvez pas désélectionner celui qui est sélectionné");
+                                  return;
+                                }
+
+                                for (int i = 0; i < accountList.length; i++) {
+                                  if (accountList[i].selected) {
+                                    accountList[i]
+                                        .setSelectionDB(
+                                            db, !accountList[i].selected)
+                                        .then((v) async {
+                                      if (v == -1) {
+                                        Tools.showNormalSnackBar(
+                                            context, "Une erreur est survenue");
+                                        return;
+                                      }
+                                      // error occurred
+                                      ac
+                                          .setSelectionDB(db, !ac.selected)
+                                          .then((value) async => {
+                                                if (value < 0)
+                                                  {
+                                                    Tools.showNormalSnackBar(
+                                                        context,
+                                                        "La modification s'est finie avec une erreur"),
+                                                  }
+                                                else
+                                                  {
+                                                    await reloadAccountList(),
+                                                  },
+                                              });
+                                    });
+                                    break;
+                                  }
+                                }
+                                ac.setSelectionDB(db, true).then((value) {
+                                  if (value <= -1) {
+                                    Tools.showNormalSnackBar(context,
+                                        "Une erreur est survenue lors de la sélection du compte");
+                                  }
+                                  setState(() {});
+                                });
+
+                                break;
+                              case "favorite":
+                                ac
+                                    .setFavoriteDB(db, !ac.favorite)
+                                    .then((value) {
+                                  if (value == -1) {
+                                    Tools.showNormalSnackBar(context,
+                                        "Une erreur est survenue lors de la modification");
+                                    return;
+                                  }
+                                  reloadAccountList();
+                                });
+                                break;
+                              case "edit":
+                                //goToEditAccount(ac.id, PagesEnum.home);
+                                showAccountDialog(
+                                    ac: ac, edit: true, add: false, rm: false);
+                                break;
+                              case "transactions":
+                                goToEditAccount(ac.id, PagesEnum.transaction);
+                                break;
+                              case "due":
+                                goToEditAccount(ac.id, PagesEnum.due);
+                                break;
+                              case "remove":
+                                final bool? v = await Tools.confirmRemoveItem(
+                                    context,
+                                    "Suppression d'un compte",
+                                    "le compte ${ac.designation}");
+                                if (v == null || !v) {
+                                  return;
+                                }
+                                db.removeAccount(ac.id).then((value) {
+                                  if (value <= -1) {
+                                    Tools.showNormalSnackBar(context,
+                                        "La suppression du compte a échoué");
+                                  } else {
+                                    reloadAccountList().then((value) {
+                                      if (accountList.isNotEmpty) {
+                                        accountList[0]
+                                            .setSelectionDB(db, true)
+                                            .then((value) {
+                                          if (value <= -1) {
+                                            Tools.showNormalSnackBar(context,
+                                                "Une erreur est survenue");
+                                          }
+                                          setState(() {});
+                                        });
+                                      }
+                                    });
+                                  }
+                                });
+                            }
+                          });
+                        },
+                        onTap: () {
+                          goToEditAccount(ac.id, PagesEnum.transaction);
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                              border: Border(bottom: borderBetween)),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 4.0, horizontal: 8),
+                            child: Row(
+                              children: generateAccountItem(ac),
+                            ),
                           ),
                         ),
                       ),
@@ -175,9 +305,9 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             Text(
-              ac.balance.toString(),
+              ac.fullBalance.toString(),
               style: TextStyle(
-                  color: ac.balance >= 0 ? Colors.green : Colors.red,
+                  color: ac.fullBalance >= 0 ? Colors.green : Colors.red,
                   fontSize: 20,
                   fontWeight: FontWeight.bold),
             )
@@ -202,11 +332,14 @@ class _HomePageState extends State<HomePage> {
     return accountItem;
   }
 
-  void addListDialog() {
+  void showAccountDialog(
+      {Account? ac, required bool edit, required bool rm, required bool add}) {
+    initTextFieldsDialog(ac: ac);
     showDialog(
         context: context,
         builder: (context) => AlertDialog(
-              title: const Text("Ajout d'un compte"),
+              title: Text(
+                  ac == null ? "Ajout d'un compte" : "Modification du compte"),
               content: SizedBox(
                 width: 500,
                 height: 230,
@@ -245,11 +378,20 @@ class _HomePageState extends State<HomePage> {
                             flex: 1,
                             child: Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: TextField(
-                                controller: acDateCont,
-                                decoration: const InputDecoration(
-                                    labelText: "Date",
-                                    border: OutlineInputBorder()),
+                              child: InkWell(
+                                onTap: () async {
+                                  accountDate = await Tools.selectDate(
+                                          context, accountDate, acDateCont,
+                                          setState: () => setState(() {})) ??
+                                      DateTime.now();
+                                },
+                                child: TextField(
+                                  controller: acDateCont,
+                                  decoration: const InputDecoration(
+                                      labelText: "Date",
+                                      enabled: false,
+                                      border: OutlineInputBorder()),
+                                ),
                               ),
                             )),
                       ],
@@ -278,8 +420,10 @@ class _HomePageState extends State<HomePage> {
                                       backgroundColor:
                                           MaterialStateProperty.all(
                                               Colors.green)),
-                                  onPressed: () => submitNewAccountDialog(),
-                                  child: const Text("AJOUTER")),
+                                  onPressed: () => submitNewAccountDialog(ac,
+                                      add: add, rm: rm, edit: edit),
+                                  child: Text(
+                                      ac == null ? "AJOUTER" : "MODIFIER")),
                             ),
                           ],
                         ),
@@ -295,68 +439,127 @@ class _HomePageState extends State<HomePage> {
     Navigator.of(context).pop();
   }
 
-  Future<void> submitNewAccountDialog() async {
-    if (acDateCont.text.isEmpty ||
-        acBalanceCont.text.isEmpty ||
-        acNameCont.text.isEmpty) {
+  Future<void> submitNewAccountDialog(Account? acParam,
+      {required bool edit, required bool rm, required bool add}) async {
+    if (rm && !add && !edit) {
+      bool? res = await Tools.confirmRemoveItem(context,
+          "Suppression d'un compte", "le compte '${acParam?.designation}' ?");
+      if (res == null || !res) {
+        return;
+      }
+      db.removeAccount(acParam!.id).then((v) {
+        if (v <= -1) {
+          Tools.showNormalSnackBar(context,
+              "Une erreur est survenue lors de la suppresion du compte");
+        }
+      });
+      return;
+    }
+
+    if (acDateCont.text.trim().isEmpty ||
+        acBalanceCont.text.trim().isEmpty ||
+        acNameCont.text.trim().isEmpty) {
       SnackBar snackBar = const SnackBar(
           content: Text("Les données fournies ne sont pas valides"));
       ScaffoldMessenger.of(context).showSnackBar(snackBar);
       return;
     }
 
-    final double balance;
-    try {
-      balance = double.parse(acBalanceCont.text);
-    } catch (e) {
+    final double? balance = double.tryParse(acBalanceCont.text.trim());
+    if (balance == null) {
       SnackBar snackBar = const SnackBar(content: Text("Solde founi invalide"));
       ScaffoldMessenger.of(context).showSnackBar(snackBar);
       return;
     }
 
-    // check if name of account is already used
-    for (var ac in accountList) {
-      if (ac.designation == acNameCont.text) {
-        SnackBar snackBar = const SnackBar(
-            content: Text("Ce nom de compte est déjà utilisé !"));
-        ScaffoldMessenger.of(context).showSnackBar(snackBar);
-        return;
+    // new account
+    if (acParam == null) {
+      // check if name of account is already used
+      for (var ac in accountList) {
+        if (ac.designation == acNameCont.text.trim()) {
+          SnackBar snackBar = const SnackBar(
+              content: Text("Ce nom de compte est déjà utilisé !"));
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+          return;
+        }
+      }
+
+      // unselect previous account
+      Account? selectedAC = getSelectedAccount();
+      if (selectedAC != null) {
+        selectedAC.setSelectionDB(db, false);
+      }
+
+      Account ac =
+          await db.addAccount(acNameCont.text.trim(), balance, "", accountDate);
+      accountList.add(ac);
+      setState(() {});
+    }
+    // acount edition
+    else {
+      if (balance != acParam.initialBalance) {
+        db.setAccountInitialBalance(acParam.id, balance).then((value) {
+          if (value <= -1) {
+            Tools.showNormalSnackBar(
+                context, "Une erreur est survenue lors d'une modification (1)");
+          } else {
+            reloadAccountList();
+          }
+        });
+      }
+      if (acNameCont.text.trim() != acParam.designation) {
+        // check if name of account is already used
+        for (var ac in accountList) {
+          if (ac.designation == acNameCont.text.trim() &&
+              acParam.designation != ac.designation) {
+            SnackBar snackBar = const SnackBar(
+                content: Text("Ce nom de compte est déjà utilisé !"));
+            ScaffoldMessenger.of(context).showSnackBar(snackBar);
+            return;
+          }
+        }
+        acParam.setDesignationDB(acNameCont.text.trim(), db).then((value) {
+          if (value <= -1) {
+            Tools.showNormalSnackBar(
+                context, "Une erreur est survenue lors d'une modification (2)");
+          } else {
+            reloadAccountList();
+          }
+        });
+      }
+      if (!Tools.areSameDay(accountDate, acParam.creationDate!)) {
+        acParam.setCreationDate(accountDate, db).then((value) {
+          if (value <= -1) {
+            Tools.showNormalSnackBar(
+                context, "Une erreur est survenue lors d'une modification (3)");
+          } else {
+            reloadAccountList();
+          }
+        });
       }
     }
-    Account? selectedAC = getSelectedAccount();
-    if (selectedAC != null) {
-      selectedAC.setSelectionDB(db, false);
-    }
-    Account ac = await db.addAccount(acNameCont.text, balance, "", accountDate);
-    accountList.add(ac);
-    setState(() {});
 
     closeNewAccountDialog();
-    initTextFieldsDialog();
   }
 
   void manageOnTapItemMenu(ActionItem item) {
     switch (item.actionItemEnum) {
       case ActionItemEnum.add:
-        addListDialog();
+        showAccountDialog(add: true, edit: false, rm: false);
         break;
       case ActionItemEnum.rm:
-        // TODO: Handle this case.
         break;
       case ActionItemEnum.edit:
-        // TODO: Handle this case.
         break;
       case ActionItemEnum.duplicate:
-        // TODO: Handle this case.
         break;
       case ActionItemEnum.imp:
-        // TODO: Handle this case.
         break;
       case ActionItemEnum.replace:
-        // TODO: Handle this case.
         break;
       case ActionItemEnum.exp:
-        // TODO: Handle this case.
+        break;
+      case ActionItemEnum.unSelectAll:
         break;
     }
   }
@@ -370,9 +573,51 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
-  void initTextFieldsDialog() {
-    acDateCont.text = DateFormat("dd/MM/yyyy").format(accountDate);
-    acBalanceCont.text = "";
-    acNameCont.text = "";
+  void initTextFieldsDialog({Account? ac}) {
+    acDateCont.text = DateFormat("dd/MM/yyyy")
+        .format(ac == null ? accountDate : ac.creationDate!);
+    acBalanceCont = TextEditingController(
+        text: ac == null ? "" : ac.initialBalance.toString());
+    acNameCont = TextEditingController(text: ac == null ? "" : ac.designation);
+    accountDate = ac == null ? DateTime.now() : ac.creationDate!;
+  }
+
+  void _getTapPosition(TapDownDetails details) {
+    final RenderBox referenceBox = context.findRenderObject() as RenderBox;
+    setState(() {
+      _tapPosition = referenceBox.globalToLocal(details.globalPosition);
+    });
+  }
+
+  void reloadAccountListSecure() {
+    db.init().then((value) async {
+      db.getAllAccounts().then((value) {
+        accountList = value;
+        setState(() {});
+      });
+    });
+  }
+
+  Future<void> reloadAccountList() async {
+    db.getAllAccounts().then((value) => {accountList = value, setState(() {})});
+  }
+
+  void goToEditAccount(int acID, PagesEnum e) {
+    switch (e) {
+      case PagesEnum.home:
+        Navigator.push(context,
+            PageRouteBuilder(pageBuilder: (_, __, ___) => const HomePage()));
+        break;
+      case PagesEnum.due:
+        Navigator.push(context,
+            PageRouteBuilder(pageBuilder: (_, __, ___) => DuePage(acID)));
+        break;
+      case PagesEnum.transaction:
+        Navigator.push(
+            context,
+            PageRouteBuilder(
+                pageBuilder: (_, __, ___) => TransactionPage(acID)));
+        break;
+    }
   }
 }

@@ -27,16 +27,19 @@ class Outsider {
     return outsider;
   }
 
-  Map<String, Object?> toMapForDB() => {
-    "used": "true",
-    "name": name,
-    "comment": comment
-  };
+  Map<String, Object?> toMapForDB() =>
+      {"used": "true", "name": name, "comment": comment};
 
   @override
   String toString() {
-    // TODO: implement toString
     return "Outsider(id: $id, name: $name, comment: $comment)";
   }
 
+  bool isNone() {
+    return id == -1;
+  }
+
+  bool areSame(Outsider outsider) {
+    return name == outsider.name && comment == outsider.comment;
+  }
 }
