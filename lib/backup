@@ -1,0 +1,134 @@
+  TableRow generateRowAdder() {
+    return TableRow(children: <Widget>[
+      // date
+      TableCell(
+          child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: InkWell(
+          onTap: () async {
+            selectedDate = await Tools.selectDate(
+                    context, selectedDate, dateController,
+                    setState: () => setState(() {})) ??
+                DateTime.now();
+          },
+          child: TextFormField(
+            controller: dateController,
+            enabled: false,
+            keyboardType: TextInputType.text,
+          ),
+        ),
+      )),
+      // state
+      TableCell(
+          child: SizedBox(
+        child: Align(
+          alignment: Alignment.center,
+          child: Checkbox(
+            value: false,
+            onChanged: (bool? value) {},
+          ),
+        ),
+      )), //
+      // amount
+      TableCell(
+          child: Padding(
+        padding: const EdgeInsets.all(10.0),
+        child: TextField(
+          controller: amountController,
+        ),
+      )),
+      // balance
+      TableCell(child: Container()),
+      // outsider
+      TableCell(
+          child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: TextField(
+          controller: outsiderController,
+        ),
+      ))
+    ]);
+  }
+
+  TableRow generateHeader() {
+    return TableRow(
+      children: <Widget>[
+        Tools.generateTableCell("DATE", rowHeaderHeight,
+            alignment: Alignment.center),
+        Tools.generateTableCell("POINTÉ", rowHeaderHeight,
+            alignment: Alignment.center),
+        Tools.generateTableCell("MONTANT", rowHeaderHeight,
+            alignment: Alignment.center),
+        Tools.generateTableCell("SOLDE", rowHeaderHeight,
+            alignment: Alignment.center),
+        Tools.generateTableCell("TIERS", rowHeaderHeight,
+            alignment: Alignment.center),
+      ],
+    );
+  }
+
+  List<TableRow> generateTableRows() {
+    List<TableRow> list = [];
+    list.add(generateHeader());
+    list.add(generateRowAdder());
+    list.addAll(generateTransactionsRows());
+    return list;
+  }
+  List<TableRow> generateTransactionsRows() {
+    return List<TableRow>.generate(account.transactionsList.length, (int i) {
+      Transactions tr = account.transactionsList[i];
+      double height = 50;
+      Alignment a = Alignment.centerLeft;
+      EdgeInsetsGeometry e = const EdgeInsets.only(left: 10.0);
+      Color amountColor = tr.amount >= 0 ? Colors.green : Colors.red;
+      BoxDecoration? decoration = clickedRowIndex.contains(i)
+          ? const BoxDecoration(color: Colors.indigoAccent)
+          : null;
+      return TableRow(decoration: decoration, children: <Widget>[
+        // date
+        TableRowInkWell(
+            onTap: () {
+              manageTableRowClick(i);
+            },
+            child: Tools.generateTableCell(tr.formatDate(), height,
+                alignment: a, pad: e)),
+        // flagged
+        Center(
+          child: Checkbox(
+            value: tr.flagged,
+            onChanged: (bool? value) async {
+              if (await tr.switchFlaggedDB(db) == -1) {
+                Tools.showNormalSnackBar(context, "Une erreur est survenue");
+                return;
+              }
+              setState(() {});
+            },
+          ),
+        ),
+        // amount
+        TableRowInkWell(
+          onTap: () => {manageTableRowClick(i)},
+          child: Tools.generateTableCell(tr.amount.toString(), height,
+              alignment: a,
+              pad: e,
+              color: amountColor,
+              fontWeight: FontWeight.bold),
+        ),
+        // balance
+        TableRowInkWell(
+          onTap: () {
+            manageTableRowClick(i);
+          },
+          child: Tools.generateTableCell(account.balance.toString(), height,
+              alignment: a, pad: e),
+        ),
+        // outsider
+        TableRowInkWell(
+            onTap: () {
+              manageTableRowClick(i);
+            },
+            child: Tools.generateTableCell(tr.outsider!.name, height,
+                alignment: a, pad: e)),
+      ]);
+    });
+  }

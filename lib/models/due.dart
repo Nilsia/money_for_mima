@@ -1,20 +1,23 @@
 import 'dart:convert';
 
+import 'package:money_for_mima/models/database_manager.dart';
+import 'package:money_for_mima/models/outsider.dart';
+
 class Due {
   int id;
   double amount;
-  DateTime? creationDate;
+  String comment = "";
+  Outsider? outsider;
 
-  Due(this.id, this.amount, this.creationDate);
+  Due(this.id, this.amount, this.outsider, {this.comment = ""});
 
-  Due.none({this.id = -1, this.amount = 0, this.creationDate}) {
-    creationDate = DateTime.now();
+  Due.none({this.id = -1, this.amount = 0, this.outsider, this.comment = ""}) {
+    outsider = Outsider.none();
   }
 
-  static Due? fromMap(Map<String, Object?> map) {
+  static Due? fromMap(Map<String, Object?> map, Outsider outsider) {
     int id;
     double amount;
-    DateTime creationDate;
     if (map.containsKey("id")) {
       id = int.parse(map["id"].toString());
     } else {
@@ -22,13 +25,7 @@ class Due {
     }
 
     if (map.containsKey("amount")) {
-      amount = double.parse(map["id"].toString());
-    } else {
-      return null;
-    }
-
-    if (map.containsKey("date")) {
-      creationDate = DateTime.parse(map["date"].toString());
+      amount = double.parse(map["amount"].toString());
     } else {
       return null;
     }
@@ -45,13 +42,34 @@ class Due {
 
     // Periodic
     if (map["type"].toString() == "Periodic") {
-      return Periodic.fromJson(jsonStr, id, amount, creationDate);
+      return Periodic.fromJson(jsonStr, id, amount, outsider);
     }
     // DueOnce
     else if (map["type"].toString() == "DueOnce") {
-      return DueOnce.fromJson(jsonStr, id, amount, creationDate);
+      return DueOnce.fromJson(jsonStr, id, amount, outsider);
     }
     return null;
+  }
+
+  Map<String, String> toJson() => {
+        "amount": amount.toString(),
+        "comment": comment,
+        "outsiderID": outsider!.id.toString()
+      };
+
+  static Future<Due?> fromMapDB(
+      Map<String, Object?> map, DatabaseManager db) async {
+    int? i = int.tryParse(map["outsiderID"].toString());
+    if (i == null) {
+      return null;
+    }
+
+    Outsider? o = await db.getOutsiderFromID(i);
+    if (o == null) {
+      return null;
+    }
+
+    return fromMap(map, o);
   }
 }
 
@@ -59,45 +77,157 @@ enum Period {
   daily, // quotidien
   weekly, // hebdomadaire
   monthly, // mensuel
-  bimonthly, // bimensuel
-  quarterly, // trimestriel (3x par mois)
+  quarterly, // trimestriel (tous les 3 mois)
   biAnnual, // semestriel
   yearly // annuel
 }
 
 class Periodic extends Due {
-  int nbInMonth;
   Period period;
+  DateTime? lastActivated;
+  DateTime? referenceDate;
 
-  Periodic(
-      super.id, super.amount, super.creationDate, this.nbInMonth, this.period);
+  Periodic(super.id, super.amount, super.outsider, this.referenceDate,
+      this.lastActivated, this.period);
 
-  Periodic.none(super.id, super.amount, super.creationDate,
-      {this.nbInMonth = 1, this.period = Period.biAnnual});
+  Periodic.none(super.id, super.amount, super.outsider, this.referenceDate,
+      {this.period = Period.biAnnual, this.lastActivated}) {
+    outsider ??= Outsider.none();
+    lastActivated ??= DateTime.now();
+    referenceDate ??= DateTime.now();
+  }
 
-  Map toJson() =>
-      {"nbInMonth": nbInMonth.toString(), "period": period.index.toString()};
+  @override
+  Map<String, String> toJson() {
+    Map<String, String> m = toJsonLight();
+    m.addAll(toJson());
+    return m;
+  }
+
+  Map<String, String> toJsonLight() => {
+        "period": period.index.toString(),
+        "lastActivated": lastActivated!.toString(),
+        "referenceDate": referenceDate.toString()
+      };
+
+  Map<String, String> toJsonForDB() {
+    Map<String, String> m = super.toJson();
+    m["jsonClass"] = json.encode(toJsonLight());
+    m["type"] = "Periodic";
+    return m;
+  }
 
   static Periodic? fromJson(
-      String jsonStr, int id, double amount, DateTime creationDate) {
+      String jsonStr, int id, double amount, Outsider outsider) {
     final dynamic jsonClass = json.decode(jsonStr);
+    DateTime? refDate = DateTime.tryParse(jsonClass["referenceDate"]);
+    DateTime? lastActivatedDate = DateTime.tryParse(jsonClass["lastActivated"]);
+    int? index = int.tryParse(jsonClass["period"]);
 
-    Periodic periodic = Periodic(
-        id, amount, creationDate, jsonClass["nbInMonth"], jsonClass["period"]);
+    if (refDate == null || lastActivatedDate == null || index == null) {
+      return null;
+    }
+
+    Period p = Period.values[index];
+
+    Periodic periodic =
+        Periodic(id, amount, outsider, refDate, lastActivatedDate, p);
     return periodic;
+  }
+
+  /// return the new Values as a Map
+  /// how to compare : newDue.buildComparativeMap(oldDue)
+  Future<Map<String, Object>?> buildComparativeMap(Periodic initialDue,
+      {DatabaseManager? db}) async {
+    Map<String, Object> map = {};
+    if (initialDue.amount != amount) {
+      map["amount"] = amount;
+    }
+
+    if (referenceDate!.isAtSameMomentAs(initialDue.referenceDate!) ||
+        period.index != initialDue.period.index) {
+      map["jsonClass"] = json.encode(toJsonLight());
+    }
+
+    if (initialDue.comment != comment) {
+      map["comment"] = comment;
+    }
+
+    if (!initialDue.outsider!.areSame(outsider!)) {
+      if (db == null) {
+        return null;
+      }
+      Outsider? o = await db.manageOutsider(outsider: outsider, oID: null);
+      if (o == null) {
+        return null;
+      }
+      map["outsiderID"] = o.id.toString();
+    }
+    return map;
+  }
+
+  Future<int> setLastActivatedDB(
+      DateTime newLastActivated, DatabaseManager db) async {
+    lastActivated = newLastActivated;
+    return await db.updatePeriodic(this, map: toJsonForDB());
   }
 }
 
 class DueOnce extends Due {
   DateTime actionDate;
 
-  DueOnce(super.id, super.amount, super.creationDate, this.actionDate);
+  DueOnce(super.id, super.amount, super.outsider, this.actionDate);
 
-  Map toJson() => {"actionDate": actionDate.toString()};
+  Map<String, String> toJsonLight() => {"actionDate": actionDate.toString()};
+
+  Map<String, String> toJsonForDB() {
+    Map<String, String> m = super.toJson();
+    m["jsonClass"] = json.encode(toJsonLight());
+    m["type"] = "DueOnce";
+    return m;
+  }
+
+  @override
+  Map<String, String> toJson() {
+    Map<String, String> m = toJsonLight();
+    m.addAll(toJson());
+    return m;
+  }
 
   static DueOnce? fromJson(
-      String jsonStr, int id, double amount, DateTime creationDate) {
+      String jsonStr, int id, double amount, Outsider outsider) {
     final dynamic jsonClass = json.decode(jsonStr);
-    return DueOnce(id, amount, creationDate, jsonClass["actionDate"]);
+    DateTime? dateTime = DateTime.tryParse(jsonClass["actionDate"]);
+    return dateTime != null ? DueOnce(id, amount, outsider, dateTime) : null;
+  }
+
+  /// return the new Values as a Map
+  /// how to compare : newDue.buildComparativeMap(oldDue)
+  Future<Map<String, Object>?> buildComparativeMap(DueOnce initialDue,
+      {DatabaseManager? db}) async {
+    Map<String, Object> map = {};
+    if (initialDue.amount != amount) {
+      map["amount"] = amount;
+    }
+
+    if (actionDate.isAtSameMomentAs(initialDue.actionDate)) {
+      map["jsonClass"] = json.encode(toJsonLight());
+    }
+
+    if (initialDue.comment != comment) {
+      map["comment"] = comment;
+    }
+
+    if (!initialDue.outsider!.areSame(outsider!)) {
+      if (db == null) {
+        return null;
+      }
+      Outsider? o = await db.manageOutsider(outsider: outsider, oID: null);
+      if (o == null) {
+        return null;
+      }
+      map["outsiderID"] = o.id.toString();
+    }
+    return map;
   }
 }
