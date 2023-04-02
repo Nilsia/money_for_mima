@@ -1,7 +1,7 @@
 use std::{
     env::current_dir,
     io::{self, ErrorKind, Write},
-    path::PathBuf, fs::metadata,
+    path::{PathBuf, Path}, fs::metadata,
 };
 
 use fs_extra::dir;
@@ -11,6 +11,8 @@ pub enum ReturnValue {
     Skip,
     Exit,
 }
+
+pub const VERSION: &str = "1.0.0+beta";
 
 pub fn choose_dir(
     dest_dir: &mut Option<PathBuf>,
@@ -94,7 +96,6 @@ pub fn move_files_fn(
 
     let mut overwrite_files = false;
 
-    println!("{:#?}", files_to_move);
     if *has_to_move_files {
         // create folder money_for_mima
         dest_dir.as_mut().unwrap().push("money_for_mima");
@@ -241,4 +242,16 @@ pub fn verify_target(target: &mut PathBuf) -> std::result::Result<(), Box<String
             _ => return Err(Box::from("Une erreur inconnue est survenue".to_string())),
         },
     }
+}
+
+pub fn do_all_files_exist(files_to_move: Vec<String>) -> std::io::Result<()> {
+    let mut path: &Path;
+    for file in files_to_move {
+        path = Path::new(&file);
+        if !path.exists() {
+        
+         return Err(ErrorKind::NotFound.into());
+        }
+    }
+    Ok(())
 }
