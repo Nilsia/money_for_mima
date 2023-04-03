@@ -214,11 +214,12 @@ pub fn generate_files_for_links(
 }
 
 pub fn verify_target(target: &mut PathBuf) -> std::result::Result<(), Box<String>> {
+    print!("{}", target.display());
     match metadata(target.to_owned()) {
         Ok(v) => {
             if !v.is_file() {
                 return Err(Box::from(
-                    "Veuillez exécuter le fichier dans le dossier money_for_mima"
+                    "Veuillez exécuter le fichier dans le dossier money_for_mima (1)"
                         .to_string(),
                 ));
             }
@@ -227,8 +228,8 @@ pub fn verify_target(target: &mut PathBuf) -> std::result::Result<(), Box<String
         Err(e) => match e.kind() {
             ErrorKind::NotFound => {
                 return Err(Box::from(
-                    "Veuillez exécuter le fichier dans le dossier money_for_mima"
-                        .to_ascii_lowercase(),
+                    "Veuillez exécuter le fichier dans le dossier money_for_mima (2)"
+                        .to_string(),
                 ))
             }
             ErrorKind::PermissionDenied => {
