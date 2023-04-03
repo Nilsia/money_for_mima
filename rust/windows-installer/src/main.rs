@@ -1,6 +1,4 @@
 use std::io::Result;
-
-use std::os::unix::fs::symlink;
 use std::path::PathBuf;
 
 use shared_tools::verify_target;
@@ -102,10 +100,9 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
 
     verify_target(&mut target)?;
 
-    /* let sl = ShellLink::new(target)?;
-    sl.create_lnk(link); */
+    let sl = ShellLink::new(target)?;
 
-    match symlink(target, link) {
+    match sl.create_lnk(link) {
         Ok(_) => Ok(()),
         Err(e) => Err(Box::from(e.to_string())),
     }
