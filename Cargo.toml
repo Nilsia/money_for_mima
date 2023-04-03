@@ -1,8 +1,5 @@
 [workspace]
 
 members = [
-	"rust/startup_program/",
-	"rust/linux-installer/",
-	"rust/windows-installer/",
-	"rust/macos-installer/"
+	"rust/windows-installer/"
 ]

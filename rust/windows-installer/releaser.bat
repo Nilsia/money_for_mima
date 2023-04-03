@@ -26,7 +26,7 @@ PowerShell -command "& { flutter build windows --release }"
 cd %actualDir%
 
 xcopy ..\..\build\windows\runner\Release\ "%target%" /v /s /e /y /q
-echo 'All files well copied'
+echo All files well copied
 
 PowerShell -command "&{ Compress-Archive -Path %target%* -DestinationPath %osD%\%appName%.zip }"
 echo ZIP file correctly generated
