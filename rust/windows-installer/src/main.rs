@@ -103,6 +103,8 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
         Err(_) => return Err(Box::from("Impossible de créer le lien".to_string())),
     }
 
+
+    println!("{}", target.display());
     verify_target(&mut target)?;
 
     let sl = match ShellLink::new(target) {
