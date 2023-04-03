@@ -215,7 +215,6 @@ pub fn generate_files_for_links(
 }
 
 pub fn verify_target(target: &mut PathBuf) -> std::result::Result<(), Box<String>> {
-    println!("{}", target.display());
     match metadata(target.to_owned()) {
         Ok(v) => {
             if !v.is_file() {

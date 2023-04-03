@@ -102,8 +102,7 @@ fn get_files_to_move() -> Vec<String> {
 fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<(), Box<String>> {
     let mut link: PathBuf = PathBuf::new();
     let mut target: PathBuf = PathBuf::new();
-    let mut mfm_dir: PathBuf = src_dir.clone().to_path_buf();
-    mfm_dir.push("money_for_mima");
+    let mfm_dir: PathBuf = src_dir.clone().to_path_buf();
 
     match generate_files_for_links(&mfm_dir, dest_dir, &mut link, &mut target, None) {
         Ok(_) => (),
