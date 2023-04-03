@@ -67,7 +67,7 @@ pub fn choose_dir(
         3 => *dest_dir = dirs::desktop_dir(),
         4 => {
             *dest_dir = Some(cur_dir.to_owned());
-            println!("Déplacement des fichiers passé");
+            println!("Copie des fichiers passé");
             *has_to_move_files = false;
         }
         5 => return Ok(ReturnValue::Exit),
@@ -204,8 +204,9 @@ pub fn generate_files_for_links(
     dest_dir: &PathBuf,
     link: &mut PathBuf,
     target: &mut PathBuf,
+    ext: Option<&str>,
 ) -> std::io::Result<()> {
-    let file_name = "money_for_mima".to_string();
+    let file_name = "money_for_mima".to_string() + &ext.unwrap_or("");
     *target = src_dir.clone();
     target.push(file_name.to_owned());
     *link = dest_dir.clone();
@@ -214,7 +215,7 @@ pub fn generate_files_for_links(
 }
 
 pub fn verify_target(target: &mut PathBuf) -> std::result::Result<(), Box<String>> {
-    print!("{}", target.display());
+    println!("{}", target.display());
     match metadata(target.to_owned()) {
         Ok(v) => {
             if !v.is_file() {
