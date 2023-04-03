@@ -206,11 +206,13 @@ pub fn generate_files_for_links(
     target: &mut PathBuf,
     ext: Option<&str>,
 ) -> std::io::Result<()> {
-    let file_name = "money_for_mima".to_string() + &ext.unwrap_or("");
+    let file_name = "money_for_mima".to_string();
     *target = src_dir.clone();
     target.push(file_name.to_owned());
+    target.set_extension(ext.unwrap_or(""));
     *link = dest_dir.clone();
     link.push(file_name);
+    link.set_extension(ext.unwrap_or(""));
     Ok(())
 }
 
