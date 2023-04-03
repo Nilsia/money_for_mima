@@ -20,7 +20,7 @@ mkdir %osD%
 IF EXIST %target% (rmdir /s /q %target%)
 mkdir %target%
 
-copy "..\..\target\release\windows-installer.exe" "%target%install.exe"
+copy "target\release\windows-installer.exe" "%target%install.exe"
 cd ..\..\
 PowerShell -command "& { flutter build windows --release }"
 cd %actualDir%

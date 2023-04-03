@@ -94,7 +94,8 @@ fn get_files_to_move() -> Vec<String> {
         String::from("./data/"),
         String::from("./lib/"),
         String::from("./money_for_mima"),
-        String::from("./installer"),
+        String::from("./install"),
+        String::from("./.dart_tool/")
     ];
 }
 

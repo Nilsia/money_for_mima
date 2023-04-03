@@ -83,9 +83,12 @@ fn main() -> Result<()> {
 fn get_files_to_move() -> Vec<String> {
     return vec![
         String::from("./data/"),
-        String::from("./lib/"),
-        String::from("./money_for_mima"),
-        String::from("./installer"),
+        String::from("./money_for_mima.exe"),
+        String::from("./install.exe"),
+        String::from("./.dart_tool/"),
+        String::from("./flutter_windows.dll"),
+        String::from("./sqlite3.dll"),
+        String::from("./sqlite3_flutter_libs_plugin.dll"),
     ];
 }
 
