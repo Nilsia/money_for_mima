@@ -112,6 +112,7 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
         Ok(v) => v,
         Err(e) => return Err(Box::from(e.to_string()))
     };
+    println!("{:#?}", sl);
 
     match sl.create_lnk(link) {
         Ok(_) => Ok(()),
