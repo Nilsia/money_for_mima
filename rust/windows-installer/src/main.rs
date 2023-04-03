@@ -99,7 +99,7 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
     mfm_dir.push("money_for_mima");
     println!("{}", mfm_dir.display());
 
-    match generate_files_for_links(&mfm_dir, dest_dir, &mut link, &mut target, ".exe") {
+    match generate_files_for_links(&mfm_dir, dest_dir, &mut link, &mut target, Some(".exe")) {
         Ok(_) => (),
         Err(_) => return Err(Box::from("Impossible de créer le lien".to_string())),
     }
