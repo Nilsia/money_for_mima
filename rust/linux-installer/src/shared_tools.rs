@@ -167,7 +167,7 @@ pub fn move_files_fn(
         match fs_extra::move_items(&files_to_move, dest_dir.as_ref().unwrap(), &options) {
             Ok(_) => (),
             Err(e) => {
-                println!("{e}");
+                eprintln!("{e}");
                 return Err(Box::from(
                     "Le déplacement des fichiers a échoué".to_string(),
                 ));
