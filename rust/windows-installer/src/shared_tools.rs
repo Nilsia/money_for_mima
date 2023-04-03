@@ -12,7 +12,7 @@ pub enum ReturnValue {
     Exit,
 }
 
-pub const VERSION: &str = "1.0.0+beta";
+pub const VERSION: &str = "0.9.0";
 
 pub fn choose_dir(
     dest_dir: &mut Option<PathBuf>,

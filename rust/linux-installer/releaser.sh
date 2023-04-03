@@ -32,10 +32,10 @@ if [ -e "$target" ]; then
 fi
 mkdir $target
 
-cp  '../../target/release/linux-installer' "$target/installer"
+cp  '../../target/release/linux-installer' "$target/install"
 cd ../../
 cd "$actualDir"
-#flutter build linux --release
+flutter build linux --release
 cp -r -t "$target" ../../build/linux/x64/release/bundle/*
 echo "All files moved"
 
