@@ -99,7 +99,6 @@ pub fn move_files_fn(
     if *has_to_move_files {
         // create folder money_for_mima
         dest_dir.as_mut().unwrap().push("money_for_mima");
-        println!("{:#?}", dest_dir);
         match std::fs::create_dir(dest_dir.as_ref().unwrap()) {
             Ok(_) => (),
             Err(e) => {
