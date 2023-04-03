@@ -94,15 +94,14 @@ fn get_files_to_move() -> Vec<String> {
 fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<(), Box<String>> {
     let mut link: PathBuf = PathBuf::new();
     let mut target: PathBuf = PathBuf::new(); // source file
-    //let mfm_dir: PathBuf = src_dir.clone().to_path_buf();
+                                              //let mfm_dir: PathBuf = src_dir.clone().to_path_buf();
 
     println!("{}", src_dir.display());
 
-    match generate_files_for_links(src_dir, dest_dir, &mut link, &mut target, Some("exe")) {
+    match generate_files_for_links(src_dir, dest_dir, &mut link, &mut target, Some("exe"), Some("lnk")) {
         Ok(_) => (),
         Err(_) => return Err(Box::from("Impossible de créer le lien".to_string())),
     }
-
 
     println!("before{}", target.display());
     verify_target(&mut target)?;
@@ -110,7 +109,7 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
 
     let sl = match ShellLink::new(target) {
         Ok(v) => v,
-        Err(e) => return Err(Box::from(e.to_string()))
+        Err(e) => return Err(Box::from(e.to_string())),
     };
     println!("{:#?}", sl);
 

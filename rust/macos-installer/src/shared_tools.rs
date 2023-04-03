@@ -204,15 +204,16 @@ pub fn generate_files_for_links(
     dest_dir: &PathBuf,
     link: &mut PathBuf,
     target: &mut PathBuf,
-    ext: Option<&str>,
+    ext_exe: Option<&str>,
+    ext_link: Option<&str>,
 ) -> std::io::Result<()> {
     let file_name = "money_for_mima".to_string();
     *target = src_dir.clone();
     target.push(file_name.to_owned());
-    target.set_extension(ext.unwrap_or(""));
+    target.set_extension(ext_exe.unwrap_or(""));
     *link = dest_dir.clone();
     link.push(file_name);
-    link.set_extension(ext.unwrap_or(""));
+    link.set_extension(ext_link.unwrap_or(""));
     Ok(())
 }
 

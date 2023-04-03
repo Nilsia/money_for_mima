@@ -104,7 +104,7 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
     let mut target: PathBuf = PathBuf::new();
     let mfm_dir: PathBuf = src_dir.clone().to_path_buf();
 
-    match generate_files_for_links(&mfm_dir, dest_dir, &mut link, &mut target, None) {
+    match generate_files_for_links(&mfm_dir, dest_dir, &mut link, &mut target, None,None) {
         Ok(_) => (),
         Err(_) => return Err(Box::from("Impossible de créer le lien".to_string())),
     }
