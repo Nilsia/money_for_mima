@@ -1,6 +1,8 @@
 use std::io::Result;
 use std::path::PathBuf;
 
+use mslnk::ShellLink;
+
 use shared_tools::verify_target;
 use shared_tools::{check_shortcut, generate_files_for_links};
 
@@ -100,7 +102,10 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
 
     verify_target(&mut target)?;
 
-    let sl = ShellLink::new(target)?;
+    let sl = match ShellLink::new(target) {
+        Ok(v) => v,
+        Err(e) => Err(Box::from(e.to_string()))
+    };
 
     match sl.create_lnk(link) {
         Ok(_) => Ok(()),
