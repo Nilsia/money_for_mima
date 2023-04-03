@@ -104,7 +104,7 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
 
     let sl = match ShellLink::new(target) {
         Ok(v) => v,
-        Err(e) => Err(Box::from(e.to_string()))
+        Err(e) => return Err(Box::from(e.to_string()))
     };
 
     match sl.create_lnk(link) {
