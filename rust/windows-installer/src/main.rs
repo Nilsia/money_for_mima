@@ -93,11 +93,12 @@ fn get_files_to_move() -> Vec<String> {
 
 fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<(), Box<String>> {
     let mut link: PathBuf = PathBuf::new();
-    let mut target: PathBuf = PathBuf::new();
-    let mfm_dir: PathBuf = src_dir.clone().to_path_buf();
-    println!("1{}", mfm_dir.display());
+    let mut target: PathBuf = PathBuf::new(); // source file
+    //let mfm_dir: PathBuf = src_dir.clone().to_path_buf();
 
-    match generate_files_for_links(&mfm_dir, dest_dir, &mut link, &mut target, Some(".exe")) {
+    println!("{}", src_dir.display());
+
+    match generate_files_for_links(src_dir, dest_dir, &mut link, &mut target, Some(".exe")) {
         Ok(_) => (),
         Err(_) => return Err(Box::from("Impossible de créer le lien".to_string())),
     }
