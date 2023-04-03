@@ -104,8 +104,9 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
     }
 
 
-    println!("{}", target.display());
+    println!("before{}", target.display());
     verify_target(&mut target)?;
+    println!("after{}", target.display());
 
     let sl = match ShellLink::new(target) {
         Ok(v) => v,
