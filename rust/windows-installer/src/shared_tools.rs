@@ -164,7 +164,7 @@ pub fn move_files_fn(
             println!("La réécriture des fichiers est activée");
             options.overwrite = true;
         }
-        match fs_extra::move_items(&files_to_move, dest_dir.as_ref().unwrap(), &options) {
+        match fs_extra::copy_items(&files_to_move, dest_dir.as_ref().unwrap(), &options) {
             Ok(_) => (),
             Err(e) => {
                 eprintln!("{e}");
