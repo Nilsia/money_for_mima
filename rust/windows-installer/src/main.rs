@@ -15,10 +15,11 @@ fn main() -> Result<()> {
         Ok(_) => (),
         Err(_) => (),
     }
-    wait_for_input()?;
     println!(
         "La suppression des fichiers n'est pas automatique, vous pouvez maintenant les supprimer"
     );
+    wait_for_input()?;
+   
     Ok(())
 }
 
@@ -100,10 +101,6 @@ fn sub_main() -> Result<()> {
             return Ok(());
         }
     }
-
-    println!("La suppression des fichiers n'est pas automatique, vous pouvez maintenant les supprimer");
-    wait_for_input()?;
-
     Ok(())
 }
 
