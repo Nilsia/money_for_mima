@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use mslnk::ShellLink;
 
 use shared_tools::{
-    check_shortcut, choose_dir, do_all_files_exist, generate_files_for_links, move_files_fn,
-    print_exit_program, verify_target, wait_for_input, ReturnValue,
+    check_file_existence, check_shortcut, choose_dir, do_all_files_exist, generate_files_for_links,
+    move_files_fn, print_exit_program, print_sep, verify_target, wait_for_input, ReturnValue,
 };
 
 pub mod shared_tools;
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     }
 
     // move files
-    match move_files_fn(&mut dest_dir, &mut has_to_move_files, get_files_to_move()) {
+    match move_files_fn(&mut dest_dir, &mut has_to_move_files, get_files_to_move(), "money_for_mima") {
         Ok(val) => match val {
             ReturnValue::NoError => (),
             ReturnValue::Exit => {

@@ -6,10 +6,9 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;
 
-use linux_installer::shared_tools::{check_file_existence, print_sep};
 use shared_tools::{
-    check_shortcut, choose_dir, do_all_files_exist, generate_files_for_links, move_files_fn,
-    print_exit_program, verify_target, wait_for_input, ReturnValue,
+    check_file_existence, check_shortcut, choose_dir, do_all_files_exist, generate_files_for_links,
+    move_files_fn, print_exit_program, print_sep, verify_target, wait_for_input, ReturnValue,
 };
 
 pub mod shared_tools;
@@ -67,7 +66,7 @@ fn sub_main() -> Result<()> {
     match answer.as_str().trim() {
         "o" | "oui" => {
             folder_name = ".money_for_mima".to_string();
-        },
+        }
         _ => {
             folder_name = "money_for_mima".to_string();
         }
@@ -166,11 +165,7 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
     ];
     let assets = "/data/flutter_assets/assets";
     let b = format!("Exec={}", target.clone().display());
-    let icon = format!(
-        "Icon={}{}/images/icons/icon.png",
-        src_dir.display(),
-        assets
-    );
+    let icon = format!("Icon={}{}/images/icons/icon.png", src_dir.display(), assets);
     lines.push(b.as_str());
     lines.push(&icon);
 
