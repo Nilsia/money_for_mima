@@ -6,6 +6,7 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;
 
+use linux_installer::shared_tools::{check_file_existence, print_sep};
 use shared_tools::{
     check_shortcut, choose_dir, do_all_files_exist, generate_files_for_links, move_files_fn,
     print_exit_program, verify_target, wait_for_input, ReturnValue,
@@ -14,9 +15,22 @@ use shared_tools::{
 pub mod shared_tools;
 
 fn main() -> Result<()> {
+    match sub_main() {
+        Ok(_) => (),
+        Err(_) => (),
+    }
+    wait_for_input()?;
+    println!(
+        "La suppression des fichiers n'est pas automatique, vous pouvez maintenant les supprimer"
+    );
+    Ok(())
+}
+
+fn sub_main() -> Result<()> {
     let mut dest_dir: Option<PathBuf> = None;
     let mut has_to_move_files: bool = true;
     let mut answer: String = String::new();
+    let folder_name: String;
 
     match do_all_files_exist(get_files_to_move()) {
         Ok(_) => (),
@@ -44,8 +58,28 @@ fn main() -> Result<()> {
         }
     }
 
+    print_sep();
+    // check if the user wants its folder to be hidden
+    answer.clear();
+    print!("Souhaitez-vous que le dossier soit caché ? (o / n) : ");
+    std::io::stdout().flush()?;
+    std::io::stdin().read_line(&mut answer)?;
+    match answer.as_str().trim() {
+        "o" | "oui" => {
+            folder_name = ".money_for_mima".to_string();
+        },
+        _ => {
+            folder_name = "money_for_mima".to_string();
+        }
+    }
+
     // move files
-    match move_files_fn(&mut dest_dir, &mut has_to_move_files, get_files_to_move()) {
+    match move_files_fn(
+        &mut dest_dir,
+        &mut has_to_move_files,
+        get_files_to_move(),
+        folder_name,
+    ) {
         Ok(val) => match val {
             ReturnValue::NoError => (),
             ReturnValue::Exit => {
@@ -91,11 +125,6 @@ fn main() -> Result<()> {
             return Ok(());
         }
     }
-
-    println!(
-        "La suppression des fichiers n'est pas automatique, vous pouvez maintenant les supprimer"
-    );
-    wait_for_input()?;
     Ok(())
 }
 
@@ -135,9 +164,17 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
         "Terminal=false",
         "Name=Money For Mima",
     ];
-
+    let assets = "/data/flutter_assets/assets";
     let b = format!("Exec={}", target.clone().display());
+    let icon = format!(
+        "Icon={}{}/images/icons/icon.png",
+        src_dir.display(),
+        assets
+    );
     lines.push(b.as_str());
+    lines.push(&icon);
+
+    check_file_existence(&link)?;
 
     let mut file = match OpenOptions::new()
         .create_new(true)
@@ -149,6 +186,7 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
         Err(e) => return Err(Box::from(e.to_string())),
     };
 
+    // write into the file
     for l in lines {
         match file.write(&l.as_bytes()) {
             Ok(size) => match size {
@@ -160,7 +198,8 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
         file.write(&[10]).unwrap();
     }
 
-    let mut perm = match fs::metadata(link.clone()) {
+    // set link executable
+    let mut perm = match fs::metadata(link.to_owned()) {
         Ok(m) => m.permissions(),
         Err(e) => return Err(Box::from(e.to_string())),
     };
@@ -170,11 +209,10 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
         Err(e) => return Err(Box::from(e.to_string())),
     }
 
+    // trust the program
     let b = format!("{}", link.display().to_string().as_str());
-
     let mut cmd = Command::new("gio");
     cmd.args(["set", b.as_str(), "metadata::trusted", "true"]);
-    println!("{:?}", cmd);
 
     match cmd.output() {
         Ok(_) => println!("Le raccourci a été généré avec succès"),

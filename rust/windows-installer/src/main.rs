@@ -125,6 +125,8 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
 
     verify_target(&mut target)?;
 
+    check_file_existence(&link)?;
+
     let sl = match ShellLink::new(target) {
         Ok(v) => v,
         Err(e) => return Err(Box::from(e.to_string())),

@@ -1,7 +1,7 @@
 use std::{
     env::current_dir,
     io::{self, ErrorKind, Write},
-    path::{PathBuf, Path}, fs::metadata,
+    path::{PathBuf, Path}, fs::{metadata, remove_file},
 };
 
 use fs_extra::dir;
@@ -19,8 +19,6 @@ pub fn choose_dir(
     answer: &mut String,
     has_to_move_files: &mut bool,
 ) -> Result<ReturnValue, Box<String>> {
-    //let vec_files: Vec<&str> = vec!["money_for_mima."];
-    //println!("Nous déplaçons tous les fichiers dans le dossier Documents/money_for_mima");
     *dest_dir = dirs::document_dir();
     let cur_dir = match current_dir() {
         Ok(v) => v,
@@ -34,11 +32,11 @@ pub fn choose_dir(
     *has_to_move_files = true;
     print!(
         "Veuillez sélectionner le dossier d'installation des fichiers : \n
-        1) Installer Money For Mima dans le dossier Mes Documents (par défaut)\n
-        2) Installer Money For Mima dans le dossier courant\n
-        3) Installer Money For Mima dans votre Bureau\n
-        4) Poursuivre le programme\n
-        5) Quitter le programme : "
+    1) Installer Money For Mima dans le dossier Mes Documents (par défaut)\n
+    2) Installer Money For Mima dans le dossier courant\n
+    3) Installer Money For Mima dans votre Bureau\n
+    4) Poursuivre le programme\n
+    5) Quitter le programme : "
     );
     io::stdout().flush().unwrap();
     let max_v = 5;
@@ -52,9 +50,11 @@ pub fn choose_dir(
             Ok(val) => val,
             Err(_) => {
                 if answer == "\n" {
+                    *answer = "1".to_string();
                     1
                 } else {
                     println!("Veuillez founir une valeur entre {} et {}", min_v, max_v);
+                    answer.clear();
                     0
                 }
             }
@@ -91,31 +91,28 @@ pub fn choose_dir(
 pub fn move_files_fn(
     dest_dir: &mut Option<PathBuf>,
     has_to_move_files: &mut bool,
-    files_to_move: Vec<String>
+    files_to_move: Vec<String>,
+    folder_name: String,
 ) -> Result<ReturnValue, Box<String>> {
 
     let mut overwrite_files = false;
 
     if *has_to_move_files {
         // create folder money_for_mima
-        dest_dir.as_mut().unwrap().push("money_for_mima");
+        println!("{}", dest_dir.as_deref().unwrap().display());
+        dest_dir.as_mut().unwrap().push(folder_name);
+        println!("{}", dest_dir.as_deref().unwrap().display());
         match std::fs::create_dir(dest_dir.as_ref().unwrap()) {
             Ok(_) => (),
-            Err(e) => {
-                /* let parent_dir = dest_dir.as_ref()
-                    .unwrap()
-                    .parent().as_ref()
-                    .unwrap()
-                    .to_str()
-                    .unwrap().clone(); */
-                
+            Err(e) => {                
                     match e.kind() {
                         ErrorKind::AlreadyExists => {
-                            println!("Le dossier money_for_mima existe déjà");
+                            print_sep();
+                            println!("Le dossier {} existe déjà", dest_dir.as_deref().unwrap().display());
                             let mut answer: String = String::new();
                             print!("Que voulez vous faire : \n
-                            1) Quitter le programme (par défaut)\n
-                            2) Écraser les fichiers présents (seulement ceux qui seraient en doublon) : ");
+    1) Quitter le programme (par défaut)\n
+    2) Écraser les fichiers présents (seulement ceux qui seraient en doublon) : ");
                             match std::io::stdout().flush() {
                                 Ok(_) => (),
                                 Err(_) => return Err(Box::from("Une erreur est survenue".to_string())),
@@ -134,7 +131,8 @@ pub fn move_files_fn(
                             }
 
                             answer.clear();
-                            print!("Vous êtez sur le point de réécrire tous les fichiers présents dans le dossier money_for_mima, Êtes-vous sûr(e) de votre action ? (oui/non) ");
+                            print_sep();
+                            print!("Vous êtes sur le point de réécrire tous les fichiers présents dans le dossier money_for_mima, Êtes-vous sûr(e) de votre action ? (oui/non) ");
                             std::io::stdout().flush().unwrap();
                             match std::io::stdin().read_line(&mut answer) {
                                 Ok(_) => (),
@@ -178,6 +176,7 @@ pub fn move_files_fn(
 }
 
 pub fn check_shortcut(answer: &mut String) -> Result<ReturnValue, Box<String>> {
+    print_sep();
     print!("Voulez-vous effectuer un raccouci vers ce programme depuis votre Bureau ? (o / n, vous pourrez toujours accéder à ce paramètre en récexécutant le programme) : ");
     std::io::stdout().flush().unwrap();
     answer.clear();
@@ -196,6 +195,7 @@ pub fn check_shortcut(answer: &mut String) -> Result<ReturnValue, Box<String>> {
 }
 
 pub fn print_exit_program() {
+    print_sep();
     println!("Fermeture du programme d'installation");
 }
 
@@ -269,8 +269,50 @@ pub fn do_all_files_exist(files_to_move: Vec<String>) -> std::io::Result<()> {
 pub fn wait_for_input() -> io::Result<()> {
     println!("Tapez sur la touche ENTRER pour fermer le terminal");
     let mut buf = String::new();
-    while buf.is_empty() {
         std::io::stdin().read_line(&mut buf)?;
-    }
+    
     Ok(())
+}
+
+pub fn check_file_existence(file: &PathBuf) -> Result<(), Box<String>> {
+    let mut a = String::new();
+
+
+    match metadata(file.to_owned()) {
+        Ok(v) => {
+            if !v.is_dir() {
+                print_sep();
+                print!(
+                    "Le raccourci {} existe déjà voulez-vous le supprimer ? (o / n) : ",
+                    file.to_owned().display()
+                );
+                std::io::stdout().flush().unwrap();
+                std::io::stdin()
+                    .read_line(&mut a)
+                    .expect("Impossible de lire la saisie");
+                match a.to_string().trim() {
+                    "o" => match remove_file(file)
+                    {
+                        Ok(_) => Ok(()),
+                        Err(e) => return Err(Box::from(e.to_string())),
+                    },
+                    _ => {
+                        println!("Aucune action n'a été effectuée.");
+                        return Ok(());
+                    }
+                }
+            } else {
+                Err(Box::from("Le raccourci existe déjà sous forme de dossier, abandon".to_string()))
+            }
+        },
+        Err(e) => match e.kind() {
+            ErrorKind::PermissionDenied => Err(Box::from("Vous ne posséder pas les permission nécéssaires".to_string())),
+            ErrorKind::NotFound => Ok(()),
+            _ => Err(Box::from("Une erreur inconnue est survenue".to_string()))
+        },
+    }
+}
+
+pub fn print_sep() {
+    println!("\n==========-==========-==========\n")
 }
