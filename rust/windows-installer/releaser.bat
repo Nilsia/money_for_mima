@@ -22,7 +22,7 @@ mkdir %target%
 
 copy "target\release\windows-installer.exe" "%target%install.exe"
 cd ..\..\
-::PowerShell -command "& { flutter build windows --release }"
+PowerShell -command "& { flutter build windows --release }"
 cd %actualDir%
 
 xcopy ..\..\build\windows\runner\Release\ "%target%" /v /s /e /y /q

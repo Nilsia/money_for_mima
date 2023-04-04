@@ -206,19 +206,25 @@ pub fn generate_files_for_links(
     target: &mut PathBuf,
     ext_exe: Option<&str>,
     ext_link: Option<&str>,
+    link_filename: &str,
 ) -> std::io::Result<()> {
     let file_name = "money_for_mima".to_string();
     *target = src_dir.clone();
     target.push(file_name.to_owned());
-    target.set_extension(ext_exe.unwrap_or(""));
+    if ext_exe.is_some() {
+        target.set_extension(ext_exe.unwrap());
+    }
+    
     *link = dest_dir.clone();
-    link.push(file_name);
-    link.set_extension(ext_link.unwrap_or(""));
+    link.push(link_filename);
+    if ext_link.is_some() {
+        link.set_extension(ext_link.unwrap());
+    }
+    
     Ok(())
 }
 
 pub fn verify_target(target: &mut PathBuf) -> std::result::Result<(), Box<String>> {
-    println!("verif{}", target.display());
     match metadata(target.to_owned()) {
         Ok(v) => {
             if !v.is_file() {
@@ -257,5 +263,12 @@ pub fn do_all_files_exist(files_to_move: Vec<String>) -> std::io::Result<()> {
          return Err(ErrorKind::NotFound.into());
         }
     }
+    Ok(())
+}
+
+pub fn wait_for_input() -> io::Result<()> {
+    println!("Tapew sur la touche ENTRER pour fermer de terminal");
+    let mut buf = String::new();
+    std::io::stdin().read_line(&mut buf)?;
     Ok(())
 }

@@ -1,10 +1,14 @@
-use std::io::Result;
+use std::fs::OpenOptions;
+use std::io::{Result, Write};
 
-use std::os::unix::fs::symlink;
+use std::fs;
+use std::os::unix::prelude::PermissionsExt;
 use std::path::PathBuf;
+use std::process::Command;
 
-use shared_tools::{verify_target, do_all_files_exist};
+use linux_installer::shared_tools::wait_for_input;
 use shared_tools::{check_shortcut, generate_files_for_links};
+use shared_tools::{do_all_files_exist, verify_target};
 
 pub mod shared_tools;
 use crate::shared_tools::{choose_dir, move_files_fn, print_exit_program, ReturnValue};
@@ -17,10 +21,12 @@ fn main() -> Result<()> {
     match do_all_files_exist(get_files_to_move()) {
         Ok(_) => (),
         Err(_) => {
-            eprintln!("Tous les fichiers ne sont pas présents, veuillez retélécharger les fichier .ZIP");
+            eprintln!(
+                "Tous les fichiers ne sont pas présents, veuillez retélécharger les fichier .ZIP"
+            );
             return Ok(());
             //println!("Vos fichiers ne sont pas présents, voulez-vous les télécharger depuis le internet ?");
-        },
+        }
     }
 
     match choose_dir(&mut dest_dir, &mut answer, &mut has_to_move_files) {
@@ -86,6 +92,10 @@ fn main() -> Result<()> {
         }
     }
 
+    println!(
+        "La suppression des fichiers n'est pas automatique, vous pouvez maintenant les supprimer"
+    );
+    wait_for_input()?;
     Ok(())
 }
 
@@ -95,25 +105,81 @@ fn get_files_to_move() -> Vec<String> {
         String::from("./lib/"),
         String::from("./money_for_mima"),
         String::from("./install"),
-        String::from("./.dart_tool/")
     ];
 }
 
 fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<(), Box<String>> {
     let mut link: PathBuf = PathBuf::new();
     let mut target: PathBuf = PathBuf::new();
-    let mfm_dir: PathBuf = src_dir.clone().to_path_buf();
 
-    match generate_files_for_links(&mfm_dir, dest_dir, &mut link, &mut target, None,None) {
+    match generate_files_for_links(
+        src_dir,
+        dest_dir,
+        &mut link,
+        &mut target,
+        None,
+        Some("desktop"),
+        "money_for_mima",
+    ) {
         Ok(_) => (),
         Err(_) => return Err(Box::from("Impossible de créer le lien".to_string())),
     }
 
+    // check if target exists
     verify_target(&mut target)?;
 
-    match symlink(target, link) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(Box::from(e.to_string())),
+    let mut lines = vec![
+        "[Desktop Entry]",
+        "Encoding=UTF-8",
+        "Type=Application",
+        "Terminal=false",
+        "Name=Money For Mima",
+    ];
+
+    let b = format!("Exec={}", target.clone().display());
+    lines.push(b.as_str());
+
+    let mut file = match OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .read(true)
+        .open(link.to_owned())
+    {
+        Ok(f) => f,
+        Err(e) => return Err(Box::from(e.to_string())),
+    };
+
+    for l in lines {
+        match file.write(&l.as_bytes()) {
+            Ok(size) => match size {
+                0 => return Err(Box::from("Impossible d'écrire dans le fichier".to_string())),
+                _ => (),
+            },
+            Err(e) => return Err(Box::from(e.to_string())),
+        }
+        file.write(&[10]).unwrap();
     }
 
+    let mut perm = match fs::metadata(link.clone()) {
+        Ok(m) => m.permissions(),
+        Err(e) => return  Err(Box::from(e.to_string())),
+    };
+    perm.set_mode(0o0775);
+    match fs::set_permissions(link.to_owned(), perm) {
+        Ok(_) => (),
+        Err(e) => return Err(Box::from(e.to_string())),
+    }
+
+    let b = format!("{}", link.display().to_string().as_str());
+
+    let mut cmd = Command::new("gio");
+    cmd.args(["set", b.as_str(), "metadata::trusted", "true"]);
+    println!("{:?}", cmd);
+
+    match cmd.output() {
+        Ok(_) => println!("Le raccourci a été généré avec succès"),
+        Err(e) => return Err(Box::from(e.to_string())),
+    }
+
+    Ok(())
 }
