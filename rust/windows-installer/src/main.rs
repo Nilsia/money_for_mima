@@ -42,7 +42,7 @@ fn main() -> Result<()> {
     }
 
     // move files
-    match move_files_fn(&mut dest_dir, &mut has_to_move_files, get_files_to_move(), "money_for_mima") {
+    match move_files_fn(&mut dest_dir, &mut has_to_move_files, get_files_to_move(), "money_for_mima".to_string()) {
         Ok(val) => match val {
             ReturnValue::NoError => (),
             ReturnValue::Exit => {
