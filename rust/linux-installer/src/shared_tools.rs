@@ -267,8 +267,10 @@ pub fn do_all_files_exist(files_to_move: Vec<String>) -> std::io::Result<()> {
 }
 
 pub fn wait_for_input() -> io::Result<()> {
-    println!("Tapew sur la touche ENTRER pour fermer de terminal");
+    println!("Tapez sur la touche ENTRER pour fermer le terminal");
     let mut buf = String::new();
-    std::io::stdin().read_line(&mut buf)?;
+    while buf.is_empty() {
+        std::io::stdin().read_line(&mut buf)?;
+    }
     Ok(())
 }

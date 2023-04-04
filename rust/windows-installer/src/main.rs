@@ -15,6 +15,17 @@ fn main() -> Result<()> {
     let mut has_to_move_files: bool = true;
     let mut answer: String = String::new();
 
+    match do_all_files_exist(get_files_to_move()) {
+        Ok(_) => (),
+        Err(_) => {
+            eprintln!(
+                "Tous les fichiers ne sont pas présents, veuillez retélécharger les fichier .ZIP"
+            );
+            return Ok(());
+            //println!("Vos fichiers ne sont pas présents, voulez-vous les télécharger depuis le internet ?");
+        }
+    }
+
     match choose_dir(&mut dest_dir, &mut answer, &mut has_to_move_files) {
         Ok(return_val) => match return_val {
             ReturnValue::NoError => (),
