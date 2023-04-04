@@ -5,7 +5,7 @@ use mslnk::ShellLink;
 
 use shared_tools::{
     check_shortcut, choose_dir, do_all_files_exist, generate_files_for_links, move_files_fn,
-    print_exit_program, verify_target, ReturnValue,
+    print_exit_program, verify_target, wait_for_input, ReturnValue,
 };
 
 pub mod shared_tools;
