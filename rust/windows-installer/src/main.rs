@@ -3,11 +3,12 @@ use std::path::PathBuf;
 
 use mslnk::ShellLink;
 
-use shared_tools::verify_target;
-use shared_tools::{check_shortcut, generate_files_for_links};
+use shared_tools::{
+    check_shortcut, choose_dir, do_all_files_exist, generate_files_for_links, move_files_fn,
+    print_exit_program, verify_target, ReturnValue,
+};
 
 pub mod shared_tools;
-use crate::shared_tools::{choose_dir, move_files_fn, print_exit_program, ReturnValue};
 
 fn main() -> Result<()> {
     let mut dest_dir: Option<PathBuf> = None;

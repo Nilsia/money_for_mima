@@ -7,11 +7,12 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use linux_installer::shared_tools::wait_for_input;
-use shared_tools::{check_shortcut, generate_files_for_links};
-use shared_tools::{do_all_files_exist, verify_target};
+use shared_tools::{
+    check_shortcut, choose_dir, do_all_files_exist, generate_files_for_links, move_files_fn,
+    print_exit_program, verify_target, ReturnValue,
+};
 
 pub mod shared_tools;
-use crate::shared_tools::{choose_dir, move_files_fn, print_exit_program, ReturnValue};
 
 fn main() -> Result<()> {
     let mut dest_dir: Option<PathBuf> = None;
@@ -162,7 +163,7 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
 
     let mut perm = match fs::metadata(link.clone()) {
         Ok(m) => m.permissions(),
-        Err(e) => return  Err(Box::from(e.to_string())),
+        Err(e) => return Err(Box::from(e.to_string())),
     };
     perm.set_mode(0o0775);
     match fs::set_permissions(link.to_owned(), perm) {
