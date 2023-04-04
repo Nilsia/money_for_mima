@@ -5,12 +5,24 @@ use mslnk::ShellLink;
 
 use shared_tools::{
     check_file_existence, check_shortcut, choose_dir, do_all_files_exist, generate_files_for_links,
-    move_files_fn, print_exit_program, print_sep, verify_target, wait_for_input, ReturnValue,
+    move_files_fn, print_exit_program, verify_target, wait_for_input, ReturnValue,
 };
 
 pub mod shared_tools;
 
 fn main() -> Result<()> {
+    match sub_main() {
+        Ok(_) => (),
+        Err(_) => (),
+    }
+    wait_for_input()?;
+    println!(
+        "La suppression des fichiers n'est pas automatique, vous pouvez maintenant les supprimer"
+    );
+    Ok(())
+}
+
+fn sub_main() -> Result<()> {
     let mut dest_dir: Option<PathBuf> = None;
     let mut has_to_move_files: bool = true;
     let mut answer: String = String::new();
