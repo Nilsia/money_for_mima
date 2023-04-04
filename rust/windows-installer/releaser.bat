@@ -20,13 +20,13 @@ mkdir %osD%
 IF EXIST %target% (rmdir /s /q %target%)
 mkdir %target%
 
-copy "..\..\target\release\windows-installer.exe" "%target%installer.exe"
+copy "target\release\windows-installer.exe" "%target%install.exe"
 cd ..\..\
-flutter build windows --release
+PowerShell -command "& { flutter build windows --release }"
 cd %actualDir%
 
 xcopy ..\..\build\windows\runner\Release\ "%target%" /v /s /e /y /q
-echo 'All files well copied'
+echo All files well copied
 
 PowerShell -command "&{ Compress-Archive -Path %target%* -DestinationPath %osD%\%appName%.zip }"
 echo ZIP file correctly generated
