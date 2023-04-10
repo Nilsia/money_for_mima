@@ -3,6 +3,7 @@ import 'package:money_for_mima/models/due.dart';
 import 'package:money_for_mima/models/table_sort_item.dart';
 import 'package:money_for_mima/models/transactions.dart';
 import 'package:money_for_mima/utils/tools.dart';
+import 'package:path/path.dart';
 
 class Account {
   int id;
@@ -57,9 +58,10 @@ class Account {
       this.creationDate});
 
   void setTransactionListDateSorted(List<Transactions> l) {
-    _currentTransactionsList = l.reversed.toList();
-    trListMap[_dateAllKey] = _currentTransactionsList;
+    _currentTransactionsList = l;
     _fullTransactionList = l;
+    _buildSortedListTransactions(_dateAllKey,
+        compare: isBeforeByDate, reversed: true, all: true, flagged: true);
   }
 
   void _buildSortedListTransactions(String key,
@@ -88,8 +90,8 @@ class Account {
         trList[j + 1] = save;
       }
     }
-    _currentTransactionsList = trList;
-    trListMap[key] = trList;
+    _currentTransactionsList = reversed ? trList.reversed.toList() : trList;
+    trListMap[key] = getCurrentTransactionList();
   }
 
   List<Transactions> copyTransactionsList(
@@ -267,11 +269,11 @@ class Account {
       ac._dueList = [];
     }
 
-    if (map.containsKey("transactionsList")) {
+    /* if (map.containsKey("transactionsList")) {
       ac.setTransactionListDateSorted([]);
     } else {
       ac.setTransactionListDateSorted([]);
-    }
+    } */
 
     if (map.containsKey("comment")) {
       ac.comment = map["comment"].toString();
@@ -306,7 +308,7 @@ class Account {
     }
 
     final int res = await db.setAccountSelected(this, selected);
-    if (res != -1) {
+    if (res >= 0) {
       this.selected = selected;
     }
     return res;
@@ -383,16 +385,19 @@ class Account {
     return _dueList;
   }
 
-  void setDueList(List<Due> dueList, DatabaseManager db) {
+  bool setDueList(List<Due> dueList, DatabaseManager db) {
     DateTime now = DateTime.now();
+    bool updated = false;
     _dueList = dueList;
     List<int> idToRemove = [];
+    // check for each if there is an update done
     _dueList.asMap().forEach((key, value) async {
       Due due = _dueList[key];
       if (due is DueOnce &&
           (Tools.areSameDay(due.actionDate, now) ||
               now.isAfter(due.actionDate))) {
         idToRemove.add(key);
+        updated = true;
         db.addTransactionsToAccount(
             id,
             Transactions(
@@ -407,6 +412,7 @@ class Account {
           }
           if (Tools.areSameDay(d, now) || now.isAfter(d)) {
             DateTime saveDate = due.lastActivated!;
+            updated = true;
             if (await due.setLastActivatedDB(d, db) <= -1) {
               return;
             }
@@ -428,18 +434,12 @@ class Account {
     for (int i = 0; i < idToRemove.length; i++) {
       _dueList.removeAt(idToRemove[i] - i);
     }
+    return updated;
   }
 
   Future<int> addTransactionsList(
       List<Transactions> trList, DatabaseManager db) async {
-    int res = 0;
-    for (Transactions tr in trList) {
-      int a = await db.addTransactionsToAccount(id, tr);
-      if (a <= -1) {
-        res = a;
-      }
-    }
-    return res;
+    return db.addTransactionsListToAccount(id, trList);
   }
 
   Future<int> setDesignationDB(
@@ -453,7 +453,7 @@ class Account {
 
   Future<int> removeTransaction(int indexInList, DatabaseManager db) async {
     return await db.removeTransactionsOfAccount(
-        id, getCurrentTransactionList()[indexInList].id);
+        id, getCurrentTransactionList().removeAt(indexInList).id);
   }
 
   Future<int> removeTransactionsList(

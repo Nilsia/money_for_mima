@@ -10,6 +10,10 @@ import 'package:money_for_mima/models/due.dart';
 import 'package:money_for_mima/models/item_menu.dart';
 import 'package:money_for_mima/models/outsider.dart';
 
+class BoolPointer {
+  bool i = false;
+}
+
 class SDenum {
   int? dft;
   String label;
@@ -33,6 +37,8 @@ enum DialogError {
 
 class Tools {
   static const menuBackgroundColor = Colors.blueAccent;
+
+  static const double menuWidth = 200;
 
   static PreferredSize generateNavBar(
       PagesEnum currentPage, List<Account> accountList) {
@@ -125,10 +131,10 @@ class Tools {
     }
 
     return SizedBox(
-        width: 200,
+        width: menuWidth,
         height: double.infinity,
         child: Container(
-          width: 100,
+          width: menuWidth,
           decoration: const BoxDecoration(color: menuBackgroundColor),
           height: double.infinity,
           child: ListView.builder(
@@ -236,6 +242,7 @@ class Tools {
         child: DropdownButton<String>(
           value: accountSelectedName,
           elevation: 16,
+          isExpanded: true,
           onChanged: accountList.length == 1
               ? null
               : (String? value) {
@@ -470,13 +477,16 @@ class Tools {
           onSelected: onSelected,
           trailingIcon: const Icon(Icons.arrow_drop_down),
         ),
-        InkWell(
-          child: const Icon(Icons.close),
-          onTap: () {
-            controller.clear();
-            enableFilter = false;
-            setState();
-          },
+        SizedBox(
+          width: 23,
+          child: InkWell(
+            child: const Icon(Icons.close),
+            onTap: () {
+              controller.clear();
+              enableFilter = false;
+              setState();
+            },
+          ),
         )
       ],
     );
@@ -493,29 +503,71 @@ class Tools {
   static Future<bool?> confirmRemoveItem(
       BuildContext context, String title, String s,
       {bool overwrite = false}) async {
+    return buildSimpleAlertDialog(context, title,
+        "${!overwrite ? "Êtes-vous sûr(e) de vouloir supprimer $s" : s} Cette action est irréversible",
+        actions: [
+          ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: ButtonStyle(
+                  backgroundColor: MaterialStateProperty.all(Colors.grey)),
+              child: const Text("ANNULER")),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.all(Colors.red)),
+            child: const Text("VALIDER"),
+          )
+        ]);
+  }
+
+  static Future<bool?> buildSimpleAlertDialog(
+      BuildContext context, String title, String content,
+      {List<Widget>? actions}) {
+    actions ??= [
+      ElevatedButton(
+        onPressed: () => Navigator.of(context).pop(true),
+        style:
+            ButtonStyle(backgroundColor: MaterialStateProperty.all(Colors.red)),
+        child: const Text("OK"),
+      )
+    ];
+
     return showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
               title: Text(title),
-              content: SizedBox(
-                  height: 150,
-                  width: 300,
-                  child: Text(
-                      "${!overwrite ? "Êtes-vous sûr(e) de vouloir supprimer $s" : s} Cette action est irréversible")),
-              actions: [
-                ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    style: ButtonStyle(
-                        backgroundColor:
-                            MaterialStateProperty.all(Colors.grey)),
-                    child: const Text("ANNULER")),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: ButtonStyle(
-                      backgroundColor: MaterialStateProperty.all(Colors.red)),
-                  child: const Text("VALIDER"),
-                )
-              ],
+              content: SizedBox(child: Text(content)),
+              actions: actions,
             ));
+  }
+
+  static Widget buildIntChoice(List<int> intList, int? defaultIndex,
+      {required double width,
+      required TextEditingController controller,
+      required String label,
+      required void Function(int? value) onSelected,
+      bool enableFilter = false}) {
+    if (defaultIndex == null || intList.isEmpty) {
+      intList.add(10);
+      defaultIndex = 0;
+    }
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Container(
+        alignment: Alignment.centerLeft,
+        child: DropdownMenu<int>(
+          initialSelection: intList[defaultIndex],
+          menuHeight: 300,
+          width: width,
+          controller: controller,
+          enableFilter: enableFilter,
+          label: Text(label),
+          dropdownMenuEntries: intList
+              .map((e) => DropdownMenuEntry(value: e, label: e.toString()))
+              .toList(),
+          onSelected: onSelected,
+        ),
+      ),
+    );
   }
 }

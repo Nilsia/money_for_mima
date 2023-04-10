@@ -33,9 +33,13 @@ class _DuePageState extends State<DuePage> {
         "Remplacer", Icons.bookmark_outline, false, ActionItemEnum.replace,
         hidden: true),
     ActionItem(
-        "Déslectionner", Icons.select_all, false, ActionItemEnum.unSelectAll),
+        "Déslectionner",
+        Icons.select_all,
+        false,
+        ActionItemEnum
+            .unSelectAll) /* ,
     null,
-    ActionItem("Importer", Icons.import_contacts, true, ActionItemEnum.imp)
+    ActionItem("Importer", Icons.import_contacts, true, ActionItemEnum.imp) */
   ];
 
   List<Outsider> oList = [];
@@ -47,7 +51,9 @@ class _DuePageState extends State<DuePage> {
   static const double amountWidth = 140,
       outsiderWidth = 500,
       periodicityWidth = 120,
-      dateWidth = 100;
+      dateWidth = 100,
+      commentWidthDefault = 500;
+  double commentWidth = 0;
 
   static const double amountStateIconSize = 20;
   Icon amountStateIcon = const Icon(
@@ -91,48 +97,256 @@ class _DuePageState extends State<DuePage> {
     tableHeight = min(
         MediaQuery.of(context).copyWith().size.height - rowHeight * 2,
         account.getDueList().length * rowHeight);
+    commentWidth = max(
+        MediaQuery.of(context).size.width -
+            amountWidth -
+            outsiderWidth -
+            dateWidth -
+            Tools.menuWidth -
+            4 -
+            16,
+        commentWidthDefault);
     return Scaffold(
       appBar: Tools.generateNavBar(PagesEnum.due, [account]),
-      body: Row(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              Tools.generateMenu(actionItemList,
+                  update: () => setState(() {}),
+                  actionItemTapped: (ActionItem item) =>
+                      actionItemTapped(item)),
+              SizedBox(
+                width: max(
+                    1000, MediaQuery.of(context).size.width - Tools.menuWidth),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildInformations(),
+                      _buildHeader(),
+                      _buildDueRows(),
+                    ],
+                  ),
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInformations() {
+    const double infoWidth = 200;
+    return SizedBox(
+      child: Row(
         children: [
-          Tools.generateMenu(actionItemList,
-              update: () => setState(() {}),
-              actionItemTapped: (ActionItem item) => actionItemTapped(item)),
           Expanded(
-              child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                Row(
+            child: SizedBox(
+                width: infoWidth,
+                child: Tools.buildAccountDropDown(
+                    accountList: accountList,
+                    account: account,
+                    accountSelectedName: accountSelectedName,
+                    update: () => setState(() {}),
+                    onSelection: (int acID) {
+                      accountID = acID;
+                      reloadAccount();
+                    })),
+          ),
+          Expanded(
+            child: Column(children: [
+              Container(
+                margin: const EdgeInsets.all(8),
+                width: infoWidth,
+                child: Row(
                   children: [
-                    Expanded(
-                        child: Tools.buildAccountDropDown(
-                            accountList: accountList,
-                            account: account,
-                            accountSelectedName: accountSelectedName,
-                            update: () => setState(() {}),
-                            onSelection: (int acID) {
-                              accountID = acID;
-                              reloadAccount();
-                            })),
-                    Expanded(
-                        child: Row(
-                      children: [
-                        Text("Solde pointé : ${account.flaggedBalance}"),
-                      ],
-                    )),
-                    Expanded(
-                        child: Text("Solde total : ${account.fullBalance}"))
+                    Text(
+                        "Solde pointé : ${account.flaggedBalance.toStringAsFixed(2)}"),
                   ],
                 ),
-                _buildHeader(),
-                _buildDueRows(),
-              ],
-            ),
-          ))
+              ),
+              Container(
+                  margin: const EdgeInsets.all(8),
+                  width: infoWidth,
+                  child: Text(
+                      "Solde total : ${account.fullBalance.toStringAsFixed(2)}"))
+            ]),
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: Colors.black)),
+      height: rowHeaderHeight,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          Tools.buildTableCell("DATE", rowHeaderHeight, dateWidth,
+              alignment: Alignment.center, decoration: rightBorder),
+          Tools.buildTableCell("MONTANT", rowHeaderHeight, amountWidth,
+              decoration: rightBorder, alignment: Alignment.center),
+          Tools.buildTableCell("PÉRIODICITÉ", rowHeaderHeight, periodicityWidth,
+              decoration: rightBorder, alignment: Alignment.center),
+          Tools.buildTableCell("TIERS", rowHeaderHeight, outsiderWidth,
+              alignment: Alignment.center)
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDueRows() {
+    return Container(
+      alignment: Alignment.topCenter,
+      height: tableHeight,
+      width: MediaQuery.of(context).copyWith().size.width,
+      decoration: const BoxDecoration(
+          border: Border(
+              left: BorderSide(color: Colors.black),
+              right: BorderSide(color: Colors.black))),
+      child: ListView.builder(
+          itemCount: account.getDueList().length,
+          scrollDirection: Axis.vertical,
+          itemBuilder: (BuildContext context, int i) {
+            DateTime date = DateTime.now();
+            Outsider outsider =
+                account.getDueList()[i].outsider ?? Outsider(0, "erreur");
+            Due due = account.getDueList()[i];
+            Period? period;
+            if (due is DueOnce) {
+              date = due.actionDate;
+            } else if (due is Periodic) {
+              date = due.referenceDate!;
+              period = due.period;
+            }
+
+            Color amountColor = due.amount >= 0 ? Colors.green : Colors.red;
+            BoxDecoration? decoration = const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.black)));
+            if (clickedRowsList.contains(i)) {
+              decoration = const BoxDecoration(
+                  color: Colors.indigoAccent,
+                  border: Border(bottom: BorderSide(color: Colors.black)));
+            } else if (hoveringRowIndex == i) {
+              decoration = const BoxDecoration(
+                  color: Color(0xffD7D8D8),
+                  border: Border(bottom: BorderSide(color: Colors.black)));
+            }
+
+            return Container(
+              decoration: decoration,
+              height: rowHeight,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  // date
+                  InkWell(
+                    onDoubleTap: () => manageTransactionsEdition(due),
+                    mouseCursor: SystemMouseCursors.basic,
+                    onTap: () => Tools.manageTableRowClick(
+                        i, clickedRowsList, actionItemList,
+                        setState: () => setState(() {})),
+                    onHover: (bool isHovering) {
+                      hoveringRowIndex = isHovering ? i : -1;
+                      setState(() {});
+                    },
+                    child: Tools.buildTableCell(
+                        Tools.formatDate(date), rowHeight, dateWidth,
+                        alignment: Alignment.center, decoration: rightBorder),
+                  ),
+                  // amount
+                  InkWell(
+                    onDoubleTap: () => manageTransactionsEdition(due),
+                    mouseCursor: SystemMouseCursors.basic,
+                    onTap: () => Tools.manageTableRowClick(
+                        i, clickedRowsList, actionItemList,
+                        setState: () => setState(() {})),
+                    onHover: (bool isHovering) {
+                      hoveringRowIndex = isHovering ? i : -1;
+                      setState(() {});
+                    },
+                    child: Tools.buildTableCell(
+                        due.amount.toString(), rowHeight, amountWidth,
+                        decoration: rightBorder,
+                        alignment: Alignment.center,
+                        color: amountColor),
+                  ),
+                  // periodicity
+                  InkWell(
+                    onDoubleTap: () => manageTransactionsEdition(due),
+                    mouseCursor: SystemMouseCursors.basic,
+                    onTap: () => Tools.manageTableRowClick(
+                        i, clickedRowsList, actionItemList,
+                        setState: () => setState(() {})),
+                    onHover: (bool isHovering) {
+                      hoveringRowIndex = isHovering ? i : -1;
+                      setState(() {});
+                    },
+                    child: Tools.buildTableCell(Tools.periodToString(period),
+                        rowHeight, periodicityWidth,
+                        decoration: rightBorder, alignment: Alignment.center),
+                  ),
+                  // outsider
+                  InkWell(
+                    mouseCursor: SystemMouseCursors.basic,
+                    onTap: () => Tools.manageTableRowClick(
+                        i, clickedRowsList, actionItemList,
+                        setState: () => setState(() {})),
+                    onHover: (bool isHovering) {
+                      hoveringRowIndex = isHovering ? i : -1;
+                      setState(() {});
+                    },
+                    onDoubleTap: () => manageTransactionsEdition(due),
+                    child: Tools.buildTableCell(
+                        outsider.name, rowHeight, outsiderWidth,
+                        alignment: Alignment.center),
+                  )
+                ],
+              ),
+            );
+          }),
+    );
+  }
+
+  void initAll() async {
+    db.init().then((value) async => {
+          reloadAccountWithCheck(),
+          await reloadAccountList(),
+          await reloadOutsiderList(),
+          setState(() {})
+        });
+    initControllers();
+    Tools.initActionItems(actionItemList);
+  }
+
+  void initControllers({Due? due}) {
+    due ??= Due(0, 0, Outsider.none());
+    changeAllOutsiderName = true;
+    commentTrController = TextEditingController(text: due.comment);
+
+    DateTime? date;
+    if (due is DueOnce) {
+      date = due.actionDate;
+    } else if (due is Periodic) {
+      date = due.referenceDate;
+    }
+
+    dateController = TextEditingController(
+        text: date != null
+            ? Tools.formatDate(date)
+            : Tools.formatDate(selectedDate));
+    amountController = TextEditingController(
+        text: due.amount == 0 ? "" : due.amount.abs().toString());
+    outsiderController = TextEditingController();
+    outsiderController = TextEditingController(
+        text: due.outsider!.isNone() ? "" : due.outsider!.name);
   }
 
   Future<void> actionItemTapped(ActionItem item) async {
@@ -220,8 +434,10 @@ class _DuePageState extends State<DuePage> {
   }
 
   void reloadAccount() {
+    BoolPointer updated = BoolPointer();
     db
-        .getAccount(accountID, haveToGetTrList: false, haveToGetDueList: true)
+        .getAccount(accountID,
+            haveToGetTrList: false, haveToGetDueList: true, updated: updated)
         .then((value) => {
               if (value == null)
                 {
@@ -231,7 +447,12 @@ class _DuePageState extends State<DuePage> {
                           pageBuilder: (_, __, ___) => const HomePage()))
                 }
               else
-                {account = value, setState(() {})}
+                {account = value, setState(() {})},
+              if (updated.i)
+                {
+                  Tools.showNormalSnackBar(context,
+                      "Des transactions ont été ajoutés depuis des occurences"),
+                }
             });
   }
 
@@ -239,42 +460,11 @@ class _DuePageState extends State<DuePage> {
     accountList = await db.getAllAccounts();
   }
 
-  void initAll() async {
-    db.init().then((value) async => {
-          reloadAccountWithCheck(),
-          await reloadAccountList(),
-          await reloadOutsiderList(),
-          setState(() {})
-        });
-    initControllers();
-    Tools.initActionItems(actionItemList);
-  }
-
   Future<void> reloadOutsiderList({bool reload = false}) async {
     oList = await db.getAllOutsider();
     if (reload) {
       setState(() {});
     }
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      decoration: BoxDecoration(border: Border.all(color: Colors.black)),
-      height: rowHeaderHeight,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          Tools.buildTableCell("DATE", rowHeaderHeight, dateWidth,
-              alignment: Alignment.center, decoration: rightBorder),
-          Tools.buildTableCell("MONTANT", rowHeaderHeight, amountWidth,
-              decoration: rightBorder, alignment: Alignment.center),
-          Tools.buildTableCell("PÉRIODICITÉ", rowHeaderHeight, periodicityWidth,
-              decoration: rightBorder, alignment: Alignment.center),
-          Tools.buildTableCell("TIERS", rowHeaderHeight, outsiderWidth,
-              alignment: Alignment.center)
-        ],
-      ),
-    );
   }
 
   bool isDebitIcon() {
@@ -422,7 +612,7 @@ class _DuePageState extends State<DuePage> {
 
     SDenum sd = SDenum("tiers", m: Tools.getOutsiderListName(oList));
 
-    double width = 400, height = 150;
+    double width = 400, height = 300;
 
     showDialog(
         context: context,
@@ -532,6 +722,7 @@ class _DuePageState extends State<DuePage> {
                             child: Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: TextFormField(
+                            maxLines: 11,
                             controller: commentTrController,
                             decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
@@ -543,14 +734,6 @@ class _DuePageState extends State<DuePage> {
                   ),
                   actions: buttonsList,
                 )));
-  }
-
-  int outsiderOnSelected(Object? o) {
-    if (o == null || o is! Outsider) {
-      return -1;
-    }
-
-    return 0;
   }
 
   void closeDueDialog() {
@@ -684,6 +867,14 @@ class _DuePageState extends State<DuePage> {
     closeDueDialog();
   }
 
+  int outsiderOnSelected(Object? o) {
+    if (o == null || o is! Outsider) {
+      return -1;
+    }
+
+    return 0;
+  }
+
   DialogError allControllerCompleted(Period? period) {
     if (double.tryParse(amountController.text.trim()) == null) {
       return DialogError.invalidAmount;
@@ -695,142 +886,6 @@ class _DuePageState extends State<DuePage> {
       return DialogError.invalidOutsider;
     }
     return DialogError.noError;
-  }
-
-  void initControllers({Due? due}) {
-    due ??= Due(0, 0, Outsider.none());
-    changeAllOutsiderName = true;
-    commentTrController = TextEditingController(text: due.comment);
-
-    DateTime? date;
-    if (due is DueOnce) {
-      date = due.actionDate;
-    } else if (due is Periodic) {
-      date = due.referenceDate;
-    }
-
-    dateController = TextEditingController(
-        text: date != null
-            ? Tools.formatDate(date)
-            : Tools.formatDate(selectedDate));
-    amountController = TextEditingController(
-        text: due.amount == 0 ? "" : due.amount.abs().toString());
-    outsiderController = TextEditingController();
-    outsiderController = TextEditingController(
-        text: due.outsider!.isNone() ? "" : due.outsider!.name);
-  }
-
-  Widget _buildDueRows() {
-    return Container(
-      alignment: Alignment.topCenter,
-      height: tableHeight,
-      width: MediaQuery.of(context).copyWith().size.width,
-      decoration: const BoxDecoration(
-          border: Border(
-              left: BorderSide(color: Colors.black),
-              right: BorderSide(color: Colors.black))),
-      child: ListView.builder(
-          itemCount: account.getDueList().length,
-          scrollDirection: Axis.vertical,
-          itemBuilder: (BuildContext context, int i) {
-            DateTime date = DateTime.now();
-            Outsider outsider =
-                account.getDueList()[i].outsider ?? Outsider(0, "erreur");
-            Due due = account.getDueList()[i];
-            Period? period;
-            if (due is DueOnce) {
-              date = due.actionDate;
-            } else if (due is Periodic) {
-              date = due.referenceDate!;
-              period = due.period;
-            }
-
-            Color amountColor = due.amount >= 0 ? Colors.green : Colors.red;
-            BoxDecoration? decoration = const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.black)));
-            if (clickedRowsList.contains(i)) {
-              decoration = const BoxDecoration(
-                  color: Colors.indigoAccent,
-                  border: Border(bottom: BorderSide(color: Colors.black)));
-            } else if (hoveringRowIndex == i) {
-              decoration = const BoxDecoration(
-                  color: Color(0xffD7D8D8),
-                  border: Border(bottom: BorderSide(color: Colors.black)));
-            }
-
-            return Container(
-              decoration: decoration,
-              height: rowHeight,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  // date
-                  InkWell(
-                    onDoubleTap: () => manageTransactionsEdition(due),
-                    mouseCursor: SystemMouseCursors.basic,
-                    onTap: () => Tools.manageTableRowClick(
-                        i, clickedRowsList, actionItemList,
-                        setState: () => setState(() {})),
-                    onHover: (bool isHovering) {
-                      hoveringRowIndex = isHovering ? i : -1;
-                      setState(() {});
-                    },
-                    child: Tools.buildTableCell(
-                        Tools.formatDate(date), rowHeight, dateWidth,
-                        alignment: Alignment.center, decoration: rightBorder),
-                  ),
-                  // amount
-                  InkWell(
-                    onDoubleTap: () => manageTransactionsEdition(due),
-                    mouseCursor: SystemMouseCursors.basic,
-                    onTap: () => Tools.manageTableRowClick(
-                        i, clickedRowsList, actionItemList,
-                        setState: () => setState(() {})),
-                    onHover: (bool isHovering) {
-                      hoveringRowIndex = isHovering ? i : -1;
-                      setState(() {});
-                    },
-                    child: Tools.buildTableCell(
-                        due.amount.toString(), rowHeight, amountWidth,
-                        decoration: rightBorder,
-                        alignment: Alignment.center,
-                        color: amountColor),
-                  ),
-                  // periodicity
-                  InkWell(
-                    onDoubleTap: () => manageTransactionsEdition(due),
-                    mouseCursor: SystemMouseCursors.basic,
-                    onTap: () => Tools.manageTableRowClick(
-                        i, clickedRowsList, actionItemList,
-                        setState: () => setState(() {})),
-                    onHover: (bool isHovering) {
-                      hoveringRowIndex = isHovering ? i : -1;
-                      setState(() {});
-                    },
-                    child: Tools.buildTableCell(Tools.periodToString(period),
-                        rowHeight, periodicityWidth,
-                        decoration: rightBorder, alignment: Alignment.center),
-                  ),
-                  // outsider
-                  InkWell(
-                    mouseCursor: SystemMouseCursors.basic,
-                    onTap: () => Tools.manageTableRowClick(
-                        i, clickedRowsList, actionItemList,
-                        setState: () => setState(() {})),
-                    onHover: (bool isHovering) {
-                      hoveringRowIndex = isHovering ? i : -1;
-                      setState(() {});
-                    },
-                    onDoubleTap: () => manageTransactionsEdition(due),
-                    child: Tools.buildTableCell(
-                        outsider.name, rowHeight, outsiderWidth,
-                        alignment: Alignment.center),
-                  )
-                ],
-              ),
-            );
-          }),
-    );
   }
 
   void manageTransactionsEdition(Due? due) {
