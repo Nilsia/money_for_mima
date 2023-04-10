@@ -41,7 +41,8 @@ class _AppBarContent extends State<AppBarContent> {
     return InkWell(
       onTap: () {
         if (super.widget.accountList.isEmpty) {
-          itemMenu.navigate(super.widget.currentPage, context, 0);
+          //itemMenu.navigate(super.widget.currentPage, context, 0);
+          return;
         }
         if (super.widget.accountList.length == 1) {
           itemMenu.navigate(super.widget.currentPage, context,

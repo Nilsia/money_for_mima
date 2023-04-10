@@ -258,7 +258,8 @@ class DatabaseManager {
     return res.first;
   }
 
-  Future<List<Account>> getAllAccounts() async {
+  Future<List<Account>> getAllAccounts(
+      {BoolPointer? updated, bool haveToGetTransactions = false}) async {
     List<Account> acL = [];
     final Database db = await database;
 
@@ -266,7 +267,15 @@ class DatabaseManager {
         columns: ["*"], where: "$_used = ?", whereArgs: ["true"]);
 
     for (var map in allList) {
-      Account? ac = Account.fromMap(map);
+      int? id = int.tryParse(map[_id].toString());
+      if (id == null) {
+        continue;
+      }
+      Account? ac = await getAccount(id,
+          map: [map],
+          haveToGetDueList: true,
+          updated: updated,
+          haveToGetTrList: haveToGetTransactions);
       if (ac != null) {
         acL.add(ac);
       }
@@ -277,32 +286,38 @@ class DatabaseManager {
 
   Future<int> nbUnFlagged(int acID) async {
     final Database db = await database;
+    String query =
+        "SELECT COUNT($_id) as count FROM $_tbNameTransactions WHERE $_used = 'true' AND $_trAccountID = $acID AND $_trFlagged = 'false'";
+    List<Map<String, Object?>> l = await db.rawQuery(query);
+    print(l);
 
-    List<Map<String, Object?>> l = await db.query(_tbNameTransactions,
+    /* List<Map<String, Object?>> l = await db.query(_tbNameTransactions,
         where: " $_used = ? AND $_trAccountID = ?",
         columns: ["COUNT(*)"],
-        whereArgs: ["true", acID]);
+        whereArgs: ["true", acID]); */
 
-    return int.parse(l.first["COUNT(*)"].toString());
+    return int.parse(l.first["count"].toString());
   }
 
   Future<List<Transactions>> getTransactionList(
       List<String> trIDList, int nb, int acID) async {
     final Database db = await database;
+    int maxTr = nb;
     int inc = nb;
     nb = 0;
 
     List<String> validIDList = [];
     List<Transactions> trList = [];
     String e = "?";
-    String idTuple = e;
+    String idTuple = "";
 
     if (trIDList.isEmpty) {
       return trList;
     }
 
+    int countUnflagged = 0, count = 0;
     // build id list for DB
-    int buildItems(int start, int nb) {
+    int buildItems(int start, int nbF) {
       if (trIDList.length <= start) {
         return -1;
       }
@@ -311,11 +326,18 @@ class DatabaseManager {
         return -1;
       }
       validIDList.add(x.toString());
-      int i = start;
-      while (i < min(trIDList.length, nb)) {
-        int? x = int.tryParse(trIDList[i]);
+      count++;
+      if (idTuple.isEmpty) {
+        idTuple = e;
+      } else {
+        idTuple = "$idTuple, $e";
+      }
+      int i = start + 1;
+      while (i < min(trIDList.length, nbF)) {
+        x = int.tryParse(trIDList[i]);
         if (x != null) {
           validIDList.add(x.toString());
+          count++;
           idTuple = "$idTuple, $e";
         }
         i++;
@@ -323,9 +345,8 @@ class DatabaseManager {
       return 0;
     }
 
-    int count = 0;
     final int nbTrUnFlagged = await nbUnFlagged(acID);
-    while (count < nbTrUnFlagged) {
+    while (countUnflagged < nbTrUnFlagged || count < maxTr) {
       if (buildItems(nb, nb + inc) <= -1) {
         return trList;
       }
@@ -345,14 +366,17 @@ class DatabaseManager {
           continue;
         }
         trList.add(tr);
-        if (tr.flagged) {
-          count++;
+        if (!tr.flagged) {
+          countUnflagged++;
         }
       }
       nb += inc;
+      idTuple = "";
+      validIDList.clear();
     }
 
-    return trList.reversed.toList();
+    for (var t in trList) {}
+    return trList;
 
     /* List<String> idList = strList.split(",");
 
@@ -421,7 +445,8 @@ class DatabaseManager {
 
   ///return id of tr
   ///-1 -> error
-  Future<int> addTransactionsToAccount(int acID, Transactions tr) async {
+  Future<int> addTransactionsToAccount(int acID, Transactions tr,
+      {int? freeRowID}) async {
     final Database db = await database;
 
     // verify that the account related to the tr exists and get list of item
@@ -454,15 +479,13 @@ class DatabaseManager {
 
     final int id;
     // check there is an empty row for TR
-    final List<Map<String, Object?>> resTr = await db.query(_tbNameTransactions,
-        columns: [_id], where: "$_used = ?", whereArgs: ["false"], limit: 1);
 
-    if (resTr.isEmpty) {
+    if (freeRowID == null) {
       // no space available add one line
       id = await db.insert(_tbNameTransactions, trMap);
     } else {
       // update an empty line
-      id = int.parse(resTr.first[_id].toString());
+      id = freeRowID;
       await db.update(_tbNameTransactions, trMap,
           where: "$_id = ? AND $_used = ?", whereArgs: [id, "false"]);
     }
@@ -538,6 +561,41 @@ class DatabaseManager {
     }
 
     return id;
+  }
+
+  Future<int> addTransactionsListToAccount(
+      int acID, List<Transactions> trList) async {
+    int res = 0, tmp;
+    List<int> free = await getFreeRows(trList.length, _tbNameTransactions);
+    int counter = 0;
+    while (counter < free.length) {
+      tmp = await addTransactionsToAccount(acID, trList[counter],
+          freeRowID: free[counter]);
+      if (res == 0) {
+        res = tmp;
+      }
+      counter++;
+    }
+
+    while (counter < trList.length) {
+      tmp = await addTransactionsToAccount(acID, trList[counter]);
+      if (res == 0) {
+        res = tmp;
+      }
+      counter++;
+    }
+
+    return res;
+  }
+
+  Future<List<int>> getFreeRows(int nb, String table) async {
+    final Database db = await database;
+    List<int> idList = [];
+    List<Map<String, Object?>> res = await db.query(table,
+        limit: nb, where: "$_used = ?", whereArgs: ["false"], columns: [_id]);
+
+    idList.addAll(res.map((e) => int.tryParse(e[_id].toString())!));
+    return idList;
   }
 
   Future<int> editTransactionAccountCurrentBalance(int trID, double balance,
@@ -771,34 +829,43 @@ class DatabaseManager {
   }
 
   Future<Account?> getAccount(int acID,
-      {bool haveToGetTrList = true, bool haveToGetDueList = false}) async {
+      {bool haveToGetTrList = true,
+      bool haveToGetDueList = false,
+      List<Map<String, Object?>>? map,
+      BoolPointer? updated,
+      int? nbTr}) async {
     final db = await database;
 
-    List<Map<String, Object?>> res = await db.query(_tbNameAccounts,
+    map ??= await db.query(_tbNameAccounts,
         limit: 1,
         columns: ["*"],
         where: "$_id = ? AND $_used = ?",
         whereArgs: [acID.toString(), "true"]);
 
-    if (res.isEmpty) {
+    if (map.isEmpty) {
       return null;
     }
 
-    Account? ac = Account.fromMap(res.first);
+    Account? ac = Account.fromMap(map.first);
     if (ac == null) {
       return null;
     }
 
     ac.setTransactionListDateSorted(haveToGetTrList
-        ? await getTransactionList(res.first[_acTrList].toString().split(","),
-            int.parse(res.first[_acNthTr].toString()), acID)
+        ? await getTransactionList(
+            map.first[_acTrList].toString().split(","), nbTr ?? nth, acID)
         : []);
+    //int.parse(map.first[_acNthTr].toString())
 
-    ac.setDueList(
+    bool ret = ac.setDueList(
         haveToGetDueList
-            ? await getDueList(res.first[_acDueList].toString().split(","))
+            ? await getDueList(map.first[_acDueList].toString().split(","))
             : [],
         this);
+
+    if (updated != null) {
+      updated.i = ret;
+    }
 
     return ac;
   }

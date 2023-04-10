@@ -370,7 +370,9 @@ class _HomePageState extends State<HomePage> {
                               child: TextField(
                                 controller: acBalanceCont,
                                 decoration: const InputDecoration(
-                                    border: OutlineInputBorder()),
+                                    border: OutlineInputBorder(),
+                                    labelText: "Solde initial",
+                                    enabled: true),
                               ),
                             )),
                         // date
@@ -591,15 +593,21 @@ class _HomePageState extends State<HomePage> {
 
   void reloadAccountListSecure() {
     db.init().then((value) async {
-      db.getAllAccounts().then((value) {
-        accountList = value;
-        setState(() {});
-      });
+      reloadAccountList();
     });
   }
 
   Future<void> reloadAccountList() async {
-    db.getAllAccounts().then((value) => {accountList = value, setState(() {})});
+    BoolPointer updated = BoolPointer();
+    db.getAllAccounts(updated: updated).then((value) => {
+          accountList = value,
+          if (updated.i)
+            {
+              Tools.showNormalSnackBar(context,
+                  "Des transactions ont été ajoutées depuis des occurrences")
+            },
+          setState(() {})
+        });
   }
 
   void goToEditAccount(int acID, PagesEnum e) {
