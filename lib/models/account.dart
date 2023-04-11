@@ -3,7 +3,6 @@ import 'package:money_for_mima/models/due.dart';
 import 'package:money_for_mima/models/table_sort_item.dart';
 import 'package:money_for_mima/models/transactions.dart';
 import 'package:money_for_mima/utils/tools.dart';
-import 'package:path/path.dart';
 
 class Account {
   int id;
@@ -385,7 +384,7 @@ class Account {
     return _dueList;
   }
 
-  bool setDueList(List<Due> dueList, DatabaseManager db) {
+  Future<bool> setDueList(List<Due> dueList, DatabaseManager db) async {
     DateTime now = DateTime.now();
     bool updated = false;
     _dueList = dueList;
@@ -408,13 +407,15 @@ class Account {
           d = Tools.generateNextDateTime(due.period, due.lastActivated!,
               referenceDate: due.referenceDate);
           if (d == null) {
-            return;
+            updated = false;
+            break;
           }
           if (Tools.areSameDay(d, now) || now.isAfter(d)) {
             DateTime saveDate = due.lastActivated!;
             updated = true;
             if (await due.setLastActivatedDB(d, db) <= -1) {
-              return;
+              updated = false;
+              break;
             }
             if (await db.addTransactionsToAccount(
                     id,
@@ -423,7 +424,8 @@ class Account {
                         comment: "Opérations provenant d'une occurrence",
                         dueID: due.id)) <=
                 -1) {
-              return;
+              updated = false;
+              break;
             }
           }
         }
@@ -432,7 +434,7 @@ class Account {
 
     // delete DueOnce executed
     for (int i = 0; i < idToRemove.length; i++) {
-      _dueList.removeAt(idToRemove[i] - i);
+      db.removeDueOfAccount(_dueList.removeAt(idToRemove[i] - i).id, id);
     }
     return updated;
   }

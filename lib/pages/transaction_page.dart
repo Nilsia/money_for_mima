@@ -47,7 +47,7 @@ class _TransactionPageState extends State<TransactionPage> {
   final double rowHeaderHeight = 38.0;
   static const double rowAdderHeight = 65;
   static const double rowHeight = 40.0;
-  static const double infoHeigth = 70;
+  // static const double infoHeigth = 70;
   DatabaseManager db = DatabaseManager();
 
   double tableHeight = 0;
@@ -58,7 +58,7 @@ class _TransactionPageState extends State<TransactionPage> {
   static const double dateWidth = 100,
       flaggedWidth = 70,
       amountWidth = 140,
-      balanceWidth = 200,
+      // balanceWidth = 200,
       outsiderWidth = 300,
       commentWidthDefault = 500;
   double commentWidth = 500;
@@ -257,7 +257,6 @@ class _TransactionPageState extends State<TransactionPage> {
               controller: nbTransactionsController,
               label: "Nombre de transactions",
               onSelected: (int? value) {
-                print(value);
                 if (value == null) {
                   return;
                 }
@@ -871,6 +870,45 @@ class _TransactionPageState extends State<TransactionPage> {
     if (clickedRowIndex.isNotEmpty) {
       sd.dft = clickedRowIndex[0];
     }
+
+    List<Widget> actions = [
+      // cancel button
+      ElevatedButton(
+        onPressed: closeTransactionsDialog,
+        style: ButtonStyle(
+            backgroundColor: MaterialStateProperty.all(Colors.grey)),
+        child: const Text("ANNULER"),
+      ),
+      // validate button
+      ElevatedButton(
+          style: ButtonStyle(
+              backgroundColor: MaterialStateProperty.all(Colors.green)),
+          onPressed: () => submitEditTransactionDialog(tr),
+          child: const Text("VALIDER")),
+      ElevatedButton(
+        onPressed: () async {
+          bool? v = await Tools.confirmRemoveItem(context,
+              "Suppression d'une occurrence", "l'occurrence sélectionée ?");
+          if (v == null) {
+            return;
+          }
+          if (v) {
+            account.removeDue(clickedRowIndex[0], db).then((value) => {
+                  if (value <= -1)
+                    {
+                      Tools.showNormalSnackBar(context,
+                          "Une erreur est survenur lors de la suppresion de l'occurrence"),
+                    },
+                  closeTransactionsDialog(),
+                });
+          }
+        },
+        style:
+            ButtonStyle(backgroundColor: MaterialStateProperty.all(Colors.red)),
+        child: const Text("SUPPRIMER"),
+      )
+    ];
+
     showDialog(
         context: context,
         builder: (context) => StatefulBuilder(
@@ -974,23 +1012,7 @@ class _TransactionPageState extends State<TransactionPage> {
                           ),
                         ))
                       ])),
-                  actions: [
-                    // cancel button
-                    ElevatedButton(
-                      onPressed: closeTransactionsDialog,
-                      style: ButtonStyle(
-                          backgroundColor:
-                              MaterialStateProperty.all(Colors.grey)),
-                      child: const Text("ANNULER"),
-                    ),
-                    // validate button
-                    ElevatedButton(
-                        style: ButtonStyle(
-                            backgroundColor:
-                                MaterialStateProperty.all(Colors.green)),
-                        onPressed: () => submitEditTransactionDialog(tr),
-                        child: const Text("VALIDER"))
-                  ],
+                  actions: actions,
                 )));
   }
 
@@ -1009,11 +1031,7 @@ class _TransactionPageState extends State<TransactionPage> {
 
     String outsiderName = getOutsiderControllerText(isRowAdder: false);
 
-    double? a = double.tryParse(amountController.text.trim());
-    if (a == null) {
-      Tools.showNormalSnackBar(context, "Montant invalide");
-      return;
-    }
+    double a = double.tryParse(amountController.text.trim())!;
 
     if (isDebitIconDialog()) {
       a *= -1;
@@ -1037,7 +1055,7 @@ class _TransactionPageState extends State<TransactionPage> {
         .editDB(
             db,
             a,
-            dateController.text.trim(),
+            selectedDate,
             outsiderName == tr.outsider!.name
                 ? null
                 : Outsider(-1, outsiderName),

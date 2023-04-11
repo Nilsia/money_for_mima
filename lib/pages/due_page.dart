@@ -49,7 +49,7 @@ class _DuePageState extends State<DuePage> {
   static const double rowHeaderHeight = 38.0;
   static const double rowHeight = 40.0;
   static const double amountWidth = 140,
-      outsiderWidth = 500,
+      outsiderWidth = 300,
       periodicityWidth = 120,
       dateWidth = 100,
       commentWidthDefault = 500;
@@ -103,6 +103,7 @@ class _DuePageState extends State<DuePage> {
             outsiderWidth -
             dateWidth -
             Tools.menuWidth -
+            periodicityWidth -
             4 -
             16,
         commentWidthDefault);
@@ -196,6 +197,8 @@ class _DuePageState extends State<DuePage> {
           Tools.buildTableCell("PÉRIODICITÉ", rowHeaderHeight, periodicityWidth,
               decoration: rightBorder, alignment: Alignment.center),
           Tools.buildTableCell("TIERS", rowHeaderHeight, outsiderWidth,
+              alignment: Alignment.center, decoration: rightBorder),
+          Tools.buildTableCell("COMMENTAIRES", rowHeaderHeight, commentWidth,
               alignment: Alignment.center)
         ],
       ),
@@ -276,7 +279,8 @@ class _DuePageState extends State<DuePage> {
                         due.amount.toString(), rowHeight, amountWidth,
                         decoration: rightBorder,
                         alignment: Alignment.center,
-                        color: amountColor),
+                        color: amountColor,
+                        fontWeight: FontWeight.bold),
                   ),
                   // periodicity
                   InkWell(
@@ -306,7 +310,25 @@ class _DuePageState extends State<DuePage> {
                     onDoubleTap: () => manageTransactionsEdition(due),
                     child: Tools.buildTableCell(
                         outsider.name, rowHeight, outsiderWidth,
-                        alignment: Alignment.center),
+                        alignment: Alignment.center, decoration: rightBorder),
+                  ),
+                  // comment
+                  Tooltip(
+                    message: due.comment,
+                    child: InkWell(
+                      mouseCursor: SystemMouseCursors.basic,
+                      onTap: () => Tools.manageTableRowClick(
+                          i, clickedRowsList, actionItemList,
+                          setState: () => setState(() {})),
+                      onHover: (bool isHovering) {
+                        hoveringRowIndex = isHovering ? i : -1;
+                        setState(() {});
+                      },
+                      onDoubleTap: () => manageTransactionsEdition(due),
+                      child: Tools.buildTableCell(
+                          due.comment, rowHeight, commentWidth,
+                          alignment: Alignment.center),
+                    ),
                   )
                 ],
               ),
@@ -811,6 +833,7 @@ class _DuePageState extends State<DuePage> {
       }
     }
 
+    newDue.comment = commentTrController.text.trim();
     newDue.outsider!.name = outsiderController.text.trim();
 
     // add
@@ -837,7 +860,7 @@ class _DuePageState extends State<DuePage> {
       }
 
       db
-          .editDue(newDue, account.getDueList()[clickedRowsList[0]])
+          .editDue(newDue, due ?? account.getDueList()[clickedRowsList[0]])
           .then((value) => {
                 if (value <= -1)
                   {

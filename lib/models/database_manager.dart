@@ -289,7 +289,6 @@ class DatabaseManager {
     String query =
         "SELECT COUNT($_id) as count FROM $_tbNameTransactions WHERE $_used = 'true' AND $_trAccountID = $acID AND $_trFlagged = 'false'";
     List<Map<String, Object?>> l = await db.rawQuery(query);
-    print(l);
 
     /* List<Map<String, Object?>> l = await db.query(_tbNameTransactions,
         where: " $_used = ? AND $_trAccountID = ?",
@@ -374,8 +373,6 @@ class DatabaseManager {
       idTuple = "";
       validIDList.clear();
     }
-
-    for (var t in trList) {}
     return trList;
 
     /* List<String> idList = strList.split(",");
@@ -857,7 +854,7 @@ class DatabaseManager {
         : []);
     //int.parse(map.first[_acNthTr].toString())
 
-    bool ret = ac.setDueList(
+    bool ret = await ac.setDueList(
         haveToGetDueList
             ? await getDueList(map.first[_acDueList].toString().split(","))
             : [],

@@ -136,18 +136,9 @@ class Transactions {
     }
   }
 
-  Future<int> editDB(DatabaseManager db, double? amount, String? date,
+  Future<int> editDB(DatabaseManager db, double? amount, DateTime date,
       Outsider? outsider, int acID, String? comment) async {
-    return await db.editTransaction(
-        id,
-        amount,
-        date != null
-            ? (date == formatDate() ? null : DateTime.tryParse(date))
-            : null,
-        outsider,
-        acID,
-        flagged,
-        this.amount,
-        comment != this.comment ? comment : null);
+    return await db.editTransaction(id, amount, date, outsider, acID, flagged,
+        this.amount, comment != this.comment ? comment : null);
   }
 }
