@@ -65,7 +65,7 @@ Pour ajouter une opération, il vous suffit de remplir la première ligne et d'e
 Sélection d'opérations
 Vous pouvez ensuite les dupliquer, les supprimer ou bien les désélectionner
 
-![Sélection d'opérations](./assets/images/README/transactions_selecting.png)
+![Sélection d'opérations](./assets/images/README/transactions_selection.png)
 
 Modification ou suppression des opérations
 
