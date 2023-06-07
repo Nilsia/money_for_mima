@@ -13,7 +13,14 @@ echo 'Building release for installer'
 cargo build --release
 echo "installer build finished"
 
-appName='money_for_mima'
+echo 'Builing release for upgrader'
+cd ../linux-upgrader/
+cargo build --release
+cd ../linux-installer/
+echo 'Upgrader build finished'
+
+# appName="money_for_mima-$version"
+appName="money_for_mima-linux"
 releaseF='../../release/'
 osD="$releaseF/linux/"
 target="$osD/$appName/"
@@ -33,6 +40,7 @@ fi
 mkdir $target
 
 cp  '../../target/release/linux-installer' "$target/install"
+cp '../../target/release/linux-upgrader' "$target/upgrade"
 cd ../../
 cd "$actualDir"
 flutter build linux --release
@@ -47,10 +55,10 @@ fi
 zip "./$appName.zip" $appName/* 
 cd "$actualDir"
 
-echo 'Renaming files'
-for file in $(find $releaseF -maxdepth 2 -name "*.zip"); do
-    filename=$(basename $file)
-    newFilename="$(sed s/$appName/$appName-$version/g <<< $file)"
-    mv $file $newFilename
-    echo "$file successufully moved with its new name"
-done
+# echo 'Renaming files'
+# for file in $(find $releaseF -maxdepth 2 -name "*.zip"); do
+#     filename=$(basename $file)
+#     newFilename="$(sed s/$appName/$appName-$version/g <<< $file)"
+#     mv $file $newFilename
+#     echo "$file successufully moved with its new name"
+# done

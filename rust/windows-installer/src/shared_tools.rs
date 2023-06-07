@@ -1,10 +1,7 @@
 use std::{
-    env::current_dir,
-    io::{self, ErrorKind, Write},
-    path::{PathBuf, Path}, fs::{metadata, remove_file},
+    fs, io,
+    path::{Path, PathBuf},
 };
-
-use fs_extra::dir;
 
 pub enum ReturnValue {
     NoError,
@@ -14,181 +11,48 @@ pub enum ReturnValue {
 
 pub const VERSION: &str = "0.9.0";
 
-pub fn choose_dir(
-    dest_dir: &mut Option<PathBuf>,
-    answer: &mut String,
-    has_to_move_files: &mut bool,
-) -> Result<ReturnValue, Box<String>> {
-    *dest_dir = dirs::document_dir();
-    let cur_dir = match current_dir() {
+/// return true if version is different and all files are present
+pub async fn check_version_and_files(files: &Vec<String>) -> Result<bool, Box<String>> {
+    Ok(get_version().await? != VERSION && do_all_files_exist(files))
+}
+
+pub async fn get_version() -> Result<String, Box<String>> {
+    let resp = match reqwest::get(format!(
+        "https://leria-etud.univ-angers.fr/~ddasilva/money_for_mima/get_version.php?appVersion={}",
+        VERSION
+    ))
+    .await
+    {
         Ok(v) => v,
         Err(_) => {
             return Err(Box::from(
-                "Impossible de récupérer le dossier courant".to_string(),
+                "Impossible de récupérer la nouvelle version (2)".to_string(),
             ))
         }
     };
-    *answer = String::new();
-    *has_to_move_files = true;
-    print!(
-        "Veuillez sélectionner le dossier d'installation des fichiers : \n
-    1) Installer Money For Mima dans le dossier Mes Documents (par défaut)\n
-    2) Installer Money For Mima dans le dossier courant\n
-    3) Installer Money For Mima dans votre Bureau\n
-    4) Poursuivre le programme\n
-    5) Quitter le programme : "
-    );
-    io::stdout().flush().unwrap();
-    let max_v = 5;
-    let min_v = 1;
-    let mut associated_nb: u8 = 0;
-    while answer.is_empty() || associated_nb < min_v || associated_nb > max_v {
-        io::stdin()
-            .read_line(answer)
-            .expect("Impossible de lire la réponse");
-        associated_nb = match answer.trim().parse() {
-            Ok(val) => val,
-            Err(_) => {
-                if answer == "\n" {
-                    *answer = "1".to_string();
-                    1
-                } else {
-                    println!("Veuillez founir une valeur entre {} et {}", min_v, max_v);
-                    answer.clear();
-                    0
-                }
-            }
-        }
-    }
-
-    match associated_nb {
-        1 => *dest_dir = dirs::document_dir(),
-        2 => *dest_dir = Some(cur_dir.to_owned()),
-        3 => *dest_dir = dirs::desktop_dir(),
-        4 => {
-            *dest_dir = Some(cur_dir.to_owned());
-            println!("Copie des fichiers passé");
-            *has_to_move_files = false;
-        }
-        5 => return Ok(ReturnValue::Exit),
-        _ => {
-            return Err(Box::from("Une erreur inconnue est survenue".to_string()));
-        }
-    }
-
-    if dest_dir.is_none() {
-        let msg: &str;
-        match associated_nb {
-            1 => msg = "Impossible d'accéder au dossier Documents",
-            3 => msg = "Impossible d'accéder à votre Bureau",
-            _ => msg = "Une erreur inconnue est survenue",
-        }
-        return Err(Box::from(String::from(msg)));
-    }
-    Ok(ReturnValue::NoError)
-}
-
-pub fn move_files_fn(
-    dest_dir: &mut Option<PathBuf>,
-    has_to_move_files: &mut bool,
-    files_to_move: Vec<String>,
-    folder_name: String,
-) -> Result<ReturnValue, Box<String>> {
-
-    let mut overwrite_files = false;
-
-    if *has_to_move_files {
-        // create folder money_for_mima
-        dest_dir.as_mut().unwrap().push(folder_name);
-        match std::fs::create_dir(dest_dir.as_ref().unwrap()) {
-            Ok(_) => (),
-            Err(e) => {                
-                    match e.kind() {
-                        ErrorKind::AlreadyExists => {
-                            print_sep();
-                            println!("Le dossier {} existe déjà", dest_dir.as_deref().unwrap().display());
-                            let mut answer: String = String::new();
-                            print!("Que voulez vous faire : \n
-    1) Quitter le programme (par défaut)\n
-    2) Écraser les fichiers présents (seulement ceux qui seraient en doublon) : ");
-                            match std::io::stdout().flush() {
-                                Ok(_) => (),
-                                Err(_) => return Err(Box::from("Une erreur est survenue".to_string())),
-                            }
-                             match std::io::stdin().read_line(&mut answer) {
-                                Ok(_) => (),
-                                Err(_) => {
-                                    return Err(Box::from("Impossible de récupérer la saisie".to_string()));
-                                },
-                            }
-
-                            match answer.as_str().trim_end() {
-                                "2" => overwrite_files = true,
-                                "1" | "" | _=>  return Ok(ReturnValue::Exit),
-
-                            }
-
-                            answer.clear();
-                            print_sep();
-                            print!("Vous êtes sur le point de réécrire tous les fichiers présents dans le dossier money_for_mima, Êtes-vous sûr(e) de votre action ? (oui/non) ");
-                            std::io::stdout().flush().unwrap();
-                            match std::io::stdin().read_line(&mut answer) {
-                                Ok(_) => (),
-                                Err(_) => return Err(Box::from("Une erreur est survenue".to_string())),
-                            }
-                            match answer.as_str().trim_end() {
-                                "oui" => (),
-                                _ => return Ok(ReturnValue::Exit)
-                            }
-
-                        },
-                        ErrorKind::PermissionDenied => 
-                        return Err(Box::from("Vous ne possédez pas les permissions nécessaires pour créer un dossier money_for_mima ".to_string())),
-                        
-                        _ => return Err(Box::from("Impossible de créer le dossier money_for_mima, erreur inconnue".to_string())),
-                    }
-                /* return Err(Box::from(format!(
-                    "Impossible de créer le dossier money_for_mima dans le dossier {}",
-
-                ))); */
-            }
-        }
-
-        // move all files
-        let mut options = dir::CopyOptions::new();
-        if overwrite_files {
-            println!("La réécriture des fichiers est activée");
-            options.overwrite = true;
-        }
-        match fs_extra::copy_items(&files_to_move, dest_dir.as_ref().unwrap(), &options) {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("{e}");
-                return Err(Box::from(
-                    "Le déplacement des fichiers a échoué".to_string(),
-                ));
-            }
-        }
-    }
-    Ok(ReturnValue::NoError)
-}
-
-pub fn check_shortcut(answer: &mut String) -> Result<ReturnValue, Box<String>> {
-    print_sep();
-    print!("Voulez-vous effectuer un raccouci vers ce programme depuis votre Bureau ? (o / n, vous pourrez toujours accéder à ce paramètre en récexécutant le programme) : ");
-    std::io::stdout().flush().unwrap();
-    answer.clear();
-    match io::stdin().read_line(answer) {
-        Ok(_) => (),
+    let text = match resp.text().await {
+        Ok(v) => v,
         Err(_) => {
             return Err(Box::from(
-                "Impossible de récupérer votre réponse".to_string(),
+                "Impossible de récupérer la nouvelle version (3)".to_string(),
             ))
         }
-    }
-    match answer.as_str().trim_end() {
-        "o" | "oui" => Ok(ReturnValue::NoError),
-        _ => Ok(ReturnValue::Skip),
+    };
+
+    let app_version_parsed = match json::parse(&text) {
+        Ok(v) => v,
+        Err(_) => {
+            return Err(Box::from(
+                "Impossible de récupérer la nouvelle version (4)".to_string(),
+            ))
+        }
+    };
+
+    match &app_version_parsed["appVersion"] {
+        json::JsonValue::Short(s) => Ok(s.to_string()),
+        _ => Err(Box::from(
+            "Impossible de récupérer la nouvelle version (5)".to_string(),
+        )),
     }
 }
 
@@ -197,118 +61,77 @@ pub fn print_exit_program() {
     println!("Fermeture du programme d'installation");
 }
 
-pub fn generate_files_for_links(
-    src_dir: &PathBuf,
-    dest_dir: &PathBuf,
-    link: &mut PathBuf,
-    target: &mut PathBuf,
-    ext_exe: Option<&str>,
-    ext_link: Option<&str>,
-    link_filename: &str,
-) -> std::io::Result<()> {
-    let file_name = "money_for_mima".to_string();
-    *target = src_dir.clone();
-    target.push(file_name.to_owned());
-    if ext_exe.is_some() {
-        target.set_extension(ext_exe.unwrap());
-    }
-    
-    *link = dest_dir.clone();
-    link.push(link_filename);
-    if ext_link.is_some() {
-        link.set_extension(ext_link.unwrap());
-    }
-    
-    Ok(())
-}
-
-pub fn verify_target(target: &mut PathBuf) -> std::result::Result<(), Box<String>> {
-    match metadata(target.to_owned()) {
-        Ok(v) => {
-            if !v.is_file() {
-                return Err(Box::from(
-                    "Veuillez exécuter le fichier dans le dossier money_for_mima (1)"
-                        .to_string(),
-                ));
-            }
-            Ok(())
-        }
-        Err(e) => match e.kind() {
-            ErrorKind::NotFound => {
-                return Err(Box::from(
-                    "Veuillez exécuter le fichier dans le dossier money_for_mimam le fichier n'a pas été trouvé (2)"
-                        .to_string(),
-                ))
-            }
-            ErrorKind::PermissionDenied => {
-                return Err(Box::from(
-                    "Vous ne possédez pas les permissions nécessaires pour accéder au fichier"
-                        .to_string(),
-                ))
-            }
-
-            _ => return Err(Box::from("Une erreur inconnue est survenue".to_string())),
-        },
-    }
-}
-
-pub fn do_all_files_exist(files_to_move: Vec<String>) -> std::io::Result<()> {
+pub fn do_all_files_exist(files_to_move: &Vec<String>) -> bool {
     let mut path: &Path;
     for file in files_to_move {
         path = Path::new(&file);
         if !path.exists() {
-        
-         return Err(ErrorKind::NotFound.into());
+            return false;
         }
     }
-    Ok(())
+    true
 }
 
 pub fn wait_for_input() -> io::Result<()> {
     println!("Tapez sur la touche ENTRER pour fermer le terminal");
     let mut buf = String::new();
-        std::io::stdin().read_line(&mut buf)?;
-    
+    std::io::stdin().read_line(&mut buf)?;
+
     Ok(())
 }
 
-pub fn check_file_existence(file: &PathBuf) -> Result<(), Box<String>> {
-    let mut a = String::new();
-
-
-    match metadata(file.to_owned()) {
-        Ok(v) => {
-            if !v.is_dir() {
-                print_sep();
-                print!(
-                    "Le raccourci {} existe déjà voulez-vous le supprimer ? (o / n) : ",
-                    file.to_owned().display()
-                );
-                std::io::stdout().flush().unwrap();
-                std::io::stdin()
-                    .read_line(&mut a)
-                    .expect("Impossible de lire la saisie");
-                match a.to_string().trim() {
-                    "o" => match remove_file(file)
-                    {
-                        Ok(_) => Ok(()),
-                        Err(e) => return Err(Box::from(e.to_string())),
-                    },
-                    _ => {
-                        println!("Aucune action n'a été effectuée.");
-                        return Ok(());
-                    }
-                }
-            } else {
-                Err(Box::from("Le raccourci existe déjà sous forme de dossier, abandon".to_string()))
-            }
-        },
-        Err(e) => match e.kind() {
-            ErrorKind::PermissionDenied => Err(Box::from("Vous ne posséder pas les permission nécéssaires".to_string())),
-            ErrorKind::NotFound => Ok(()),
-            _ => Err(Box::from("Une erreur inconnue est survenue".to_string()))
-        },
+#[allow(dead_code)]
+pub fn copy_dir_content(
+    from: &PathBuf,
+    to: &PathBuf,
+    exception: &Vec<&str>,
+    options: &fs_extra::dir::CopyOptions,
+) -> io::Result<()> {
+    let mut folder_testing = fs::read_dir(&from)?;
+    if folder_testing.next().is_none() {
+        fs::create_dir_all(to)?;
+        return Ok(());
     }
+
+    match fs::read_dir(&from) {
+        Ok(folder) => {
+            for file_res in folder {
+                let f: fs::DirEntry = file_res?;
+                let f_pathbuf: PathBuf = f.path().clone();
+                let f_path: &Path = f_pathbuf.as_path();
+                let filename = match f_path.file_name() {
+                    Some(v) => match v.to_str() {
+                        Some(v) => v,
+                        None => continue,
+                    },
+                    None => continue,
+                };
+                if exception.contains(&filename) {
+                    continue;
+                }
+                match f.file_type() {
+                    Ok(t) => {
+                        if t.is_dir() {
+                            match fs_extra::dir::copy(f_path, to, options) {
+                                Ok(_) => (),
+                                Err(e) => {
+                                    eprintln!("Une erreur est survenue : {}", e);
+                                }
+                            };
+                        } else if t.is_file() {
+                            if let Err(e) = fs::copy(f_path, to.join(filename)) {
+                                eprintln!("{} : {}", filename, e);
+                            }
+                        }
+                    }
+                    Err(_) => (),
+                }
+            }
+        }
+        Err(e) => return Err(e),
+    };
+
+    Ok(())
 }
 
 pub fn print_sep() {

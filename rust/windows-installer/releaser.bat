@@ -5,7 +5,7 @@ cargo build --release
 echo installer build finished
 
 set actualDir=%~dp0
-set appName=money_for_mima
+set appName=money_for_mima-windows
 set releaseF=..\..\release\
 set osD=%releaseF%windows\
 set target=%osD%%appName%\
