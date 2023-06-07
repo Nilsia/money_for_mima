@@ -4,6 +4,12 @@ echo Building release for installer
 cargo build --release
 echo installer build finished
 
+echo Builing release for upgrader
+cd ../windows-upgrader/
+cargo build --release
+cd ../windows-installer/
+echo Upgrader build finished
+
 set actualDir=%~dp0
 set appName=money_for_mima-windows
 set releaseF=..\..\release\
@@ -21,6 +27,7 @@ IF EXIST %target% (rmdir /s /q %target%)
 mkdir %target%
 
 copy "target\release\windows-installer.exe" "%target%install.exe"
+copy "target\release\windows-upgrader.exe" "%target%upgrade.exe"
 cd ..\..\
 PowerShell -command "& { flutter build windows --release }"
 cd %actualDir%
