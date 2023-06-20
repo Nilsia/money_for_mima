@@ -52,7 +52,7 @@ cd "$osD"
 if [ -e "./$appName.zip" ]; then
     rm "./$appName.zip"
 fi
-zip "./$appName.zip" $appName/* 
+zip -r "./$appName.zip" $appName/* 
 cd "$actualDir"
 
 # echo 'Renaming files'
