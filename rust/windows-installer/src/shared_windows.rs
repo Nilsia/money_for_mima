@@ -1,5 +1,5 @@
 
-fn get_files_to_move() -> Vec<String> {
+pub fn get_files_to_move() -> Vec<String> {
     return vec![
         String::from("./data/"),
         String::from("./money_for_mima.exe"),
