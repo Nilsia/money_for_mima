@@ -16,6 +16,13 @@ pub async fn check_version_and_files(files: &Vec<String>) -> Result<bool, Box<St
     Ok(get_version().await? != VERSION && do_all_files_exist(files))
 }
 
+pub fn get_extension(system: &String) -> &str {
+    match system.as_str() {
+        "windows" => ".exe",
+        _ => "",
+    }
+}
+
 pub async fn get_version() -> Result<String, Box<String>> {
     let resp = match reqwest::get(format!(
         "https://leria-etud.univ-angers.fr/~ddasilva/money_for_mima/get_version.php?appVersion={}",

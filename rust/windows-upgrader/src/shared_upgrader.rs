@@ -1,15 +1,14 @@
 use std::{
     env,
     fs::{self, OpenOptions},
-    io::Cursor,
-    path::PathBuf,
-    process::Command,
+    io::{self, Cursor},
+    path::{Path, PathBuf},
 };
 
 use fs_extra::dir;
 use reqwest::Response;
 
-use crate::shared_tools::{copy_dir_content, ReturnValue};
+use crate::shared_tools::{copy_dir_content, get_extension, ReturnValue};
 
 pub async fn upgrade(
     _files_to_move: Vec<String>,
@@ -17,7 +16,7 @@ pub async fn upgrade(
 ) -> Result<ReturnValue, Box<String>> {
     let app_and_version_filename: String = format!("money_for_mima");
     let filename = PathBuf::from(format!("{}-{}.zip", app_and_version_filename, system));
-    println!("{}", filename.display());
+    let extension = get_extension(&system);
 
     // making a request to the server
     let resp: Response = match reqwest::get(format!(
@@ -66,12 +65,16 @@ pub async fn upgrade(
     };
 
     // extract compressed archive caugth from the internet
-    match zip_extract::extract(cursor, &extraction_dir.as_path(), true) {
+    match extract_zip(
+        &filename,
+        &extraction_dir,
+        [PathBuf::from("upgrade".to_owned() + extension)].to_vec(),
+    ) {
         Ok(_) => (),
-        Err(_) => {
+        Err(e) => {
             remove_zip_file(&filename)?;
             return Err(Box::from(
-                "Impossible de mettre à jour Money For Mima (1)".to_string(),
+                format!("Impossible de mettre à jour Money For Mima (1) {e}").to_string(),
             ));
         }
     };
@@ -92,17 +95,14 @@ pub async fn upgrade(
 
     remove_zip_file(&filename)?;
 
-    if !PathBuf::from("install").exists() {
+    if let Err(_e) = fs::remove_dir_all(&PathBuf::from("./tmp/")) {
         return Err(Box::from(
-            "Impossible de finir la mise à jour, le fichier install est manquant.".to_string(),
+            "Impossible de supprimer le dossier temporaire, cette erreur n'est pas importante"
+                .to_string(),
         ));
     }
 
-    if let Err(_) = Command::new("./install").arg("--move").spawn() {
-        return Err(Box::from(
-            "Impossible de finir la mise à jour (1)".to_string(),
-        ));
-    }
+    println!("Money For Mima est à jour.");
 
     return Ok(ReturnValue::NoError);
 }
@@ -116,4 +116,58 @@ fn remove_zip_file(filename: &PathBuf) -> Result<(), Box<String>> {
                 .to_string(),
         )),
     }
+}
+
+fn extract_zip(archive: &Path, target_dir: &Path, exceptions: Vec<PathBuf>) -> std::io::Result<()> {
+    let file_archive = fs::File::open(archive)?;
+
+    let mut archive = match zip::ZipArchive::new(file_archive) {
+        Ok(v) => v,
+        Err(e) => return Err(e.into()),
+    };
+
+    for i in 0..archive.len() {
+        let mut file = match archive.by_index(i) {
+            Ok(v) => v,
+            Err(e) => return Err(e.into()),
+        };
+        let enclosed_name = match file.enclosed_name() {
+            Some(v) => v,
+            None => continue,
+        };
+
+        let outpath = target_dir.join(enclosed_name.to_owned());
+        let filename_in_zip = match enclosed_name.to_str() {
+            Some(v) => v,
+            None => continue,
+        }
+        .to_string();
+
+        if exceptions.contains(&PathBuf::from(&filename_in_zip)) {
+            continue;
+        }
+        if filename_in_zip.ends_with('/') || filename_in_zip.ends_with("\\") {
+            fs::create_dir_all(&outpath)?;
+        } else {
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    fs::create_dir_all(p)?;
+                }
+            }
+            let mut outfile = fs::File::create(&outpath)?;
+            io::copy(&mut file, &mut outfile)?;
+        }
+
+        // Get and Set permissions
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            if let Some(mode) = file.unix_mode() {
+                fs::set_permissions(&outpath, fs::Permissions::from_mode(mode))?;
+            }
+        }
+    }
+
+    Ok(())
 }

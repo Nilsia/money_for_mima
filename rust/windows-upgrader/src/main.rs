@@ -1,7 +1,7 @@
 use std::io::Result;
 use windows_upgrader::{
     shared_windows::get_files_to_move,
-    shared_tools::{do_all_files_exist, get_version, VERSION},
+    shared_tools::{do_all_files_exist, get_version, VERSION, wait_for_input},
     shared_upgrader::upgrade,
 };
 
@@ -33,6 +33,10 @@ async fn main() -> Result<()> {
             eprintln!("{}", e.to_string());
         }
     };
+
+    if let Err(_) = wait_for_input() {
+        eprintln!("Une erreur sans importance vient de survenir...");
+    }
 
     Ok(())
 }

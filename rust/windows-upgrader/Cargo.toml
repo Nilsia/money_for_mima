@@ -12,3 +12,4 @@ zip-extract = "0.1.2"
 dirs = "5.0.0"
 tokio = { version = "1.28.2", features = ["full"] }
 json = "0.12.4"
+zip = { version = "0.6.6", default-features = false }

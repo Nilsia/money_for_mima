@@ -6,45 +6,8 @@ use std::{
 
 use fs_extra::dir;
 
-use crate::shared_tools::{print_sep, ReturnValue, check_version_and_files};
+use crate::shared_tools::{print_sep, ReturnValue};
 
-/// .
-///
-/// # Errors
-///
-/// This function will return an error if .
-#[allow(dead_code)]
-pub async fn copy_upgrade_and_remove(files: &Vec<String>) -> std::result::Result<(), Box<String>> {
-    if !check_version_and_files(&files).await? {
-        return Err(Box::from(
-            "Vous semblez ne pas être au bon endroit, ou vous êtes déjà à la dernière version."
-                .to_string(),
-        ));
-    }
-
-    let file = PathBuf::from("./tmp/upgrade");
-    if !file.exists() {
-        return Err(Box::from(
-            "Impossible de mettre à jour complètement Money For Mima (1)".to_string(),
-        ));
-    }
-
-    if let Err(_) = fs::copy(&file.as_path(), &PathBuf::from("./upgrade")) {
-        return Err(Box::from(
-            "Impossible de mettre à jour complètement Money For Mima (2)".to_string(),
-        ));
-    }
-
-    if let Err(_e) = fs::remove_dir_all(&PathBuf::from("./tmp/")) {
-        return Err(Box::from(
-            "Impossible de supprimer le dossier temporaire, cette erreur n'est pas importante"
-                .to_string(),
-        ));
-    }
-
-    println!("\nVotre logiciel Money For Mima est à jour");
-    Ok(())
-}
 pub fn check_shorcut_existence(file: &PathBuf) -> Result<(), Box<String>> {
     let mut a = String::new();
 

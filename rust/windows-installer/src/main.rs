@@ -1,24 +1,23 @@
-use std::io::Result;
 use std::path::PathBuf;
+use std::io::Result;
+
 
 use mslnk::ShellLink;
 use windows_installer::{
     shared_installer::{
-        check_shorcut_existence, check_shortcut, choose_dir, copy_upgrade_and_remove,
-        generate_files_for_links, move_files_fn, verify_target,
+        check_shorcut_existence, check_shortcut, choose_dir, generate_files_for_links,
+        move_files_fn, verify_target,
     },
-    shared_tools::{
-        check_version_and_files, do_all_files_exist, print_exit_program, print_sep, wait_for_input,
-        ReturnValue,
-    },
+    shared_tools::{do_all_files_exist, print_exit_program, wait_for_input, ReturnValue},
     shared_windows::get_files_to_move,
 };
 
 pub mod shared_tools;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let mut wait_after: bool = true;
-    match sub_main(&mut wait_after) {
+    match sub_main(&mut wait_after).await {
         Ok(_) => (),
         Err(_) => (),
     }
@@ -31,22 +30,12 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn sub_main(wait_after: &mut bool) -> Result<()> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() >= 2 && args[1] == "--move" {
-        thread::sleep(time::Duration::from_secs(1));
-        if let Err(e) = copy_upgrade_and_remove().await {
-            eprintln!("An error occured : {}", e.to_string());
-        }
-        *wait_after = false;
-        return Ok(());
-    }
-
+async fn sub_main(_wait_after: &mut bool) -> Result<()> {
     let mut dest_dir: Option<PathBuf> = None;
     let mut has_to_move_files: bool = true;
     let mut answer: String = String::new();
 
-    if let Err(_) = do_all_files_exist(&get_files_to_move()) {
+    if !do_all_files_exist(&get_files_to_move()) {
         eprintln!(
             "Tous les fichiers ne sont pas présents, veuillez retélécharger les fichier .ZIP"
         );
@@ -146,7 +135,7 @@ fn generate_links(src_dir: &PathBuf, dest_dir: &PathBuf) -> std::result::Result<
 
     verify_target(&mut target)?;
 
-    check_file_existence(&link)?;
+    check_shorcut_existence(&link)?;
 
     let sl = match ShellLink::new(target) {
         Ok(v) => v,
