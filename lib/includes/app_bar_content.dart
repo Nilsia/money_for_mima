@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:money_for_mima/models/account.dart';
+import 'package:money_for_mima/models/database_manager.dart';
 import 'package:money_for_mima/models/item_menu.dart';
 
 class AppBarContent extends StatefulWidget {
@@ -35,13 +36,24 @@ class _AppBarContent extends State<AppBarContent> {
 
   Widget generateItemMenu(int index, BuildContext context) {
     ItemMenu itemMenu = super.widget.itemMenuList[index];
-    Border? bd = itemMenu.pagesEnum == super.widget.currentPage
+    Border? bd = itemMenu.pageTarget == super.widget.currentPage
         ? const Border(bottom: BorderSide(color: Colors.white, width: 4))
         : null;
     return InkWell(
       onTap: () {
         if (super.widget.accountList.isEmpty) {
-          //itemMenu.navigate(super.widget.currentPage, context, 0);
+          final db = DatabaseManager();
+          // get selected account and go to its requested page
+          db.init().then((value) {
+            db.getIdOfSelectedAccount().then((id) {
+              if (id == null) {
+                itemMenu.pageTarget = PagesEnum.home;
+                itemMenu.navigate(super.widget.currentPage, context, -1);
+                return;
+              }
+              itemMenu.navigate(super.widget.currentPage, context, id);
+            });
+          });
           return;
         }
         if (super.widget.accountList.length == 1) {

@@ -61,7 +61,6 @@ class OutsiderListView extends StatelessWidget {
                 Outsider o = outsiderList[i];
                 const borderBetween = BorderSide(color: Colors.grey);
                 List<PopupAction> popupActionList = [PopupAction.edit];
-                print(allOutsiderIdUsed);
                 if (!allOutsiderIdUsed.contains(o.id)) {
                   popupActionList.add(PopupAction.delete);
                 }

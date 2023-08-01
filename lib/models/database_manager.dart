@@ -1473,4 +1473,18 @@ class DatabaseManager {
         ? -3
         : 0;
   }
+
+  Future<int?> getIdOfSelectedAccount() async {
+    final Database db = await database;
+    List<Map<String, Object?>> res = await db.query(_tbNameAccounts,
+        where: "$_used = ? AND $_acSelected = ?",
+        whereArgs: ["true", "true"],
+        columns: [_id],
+        limit: 1);
+    if (res.isEmpty) {
+      return null;
+    }
+
+    return int.tryParse(res.first[_id].toString());
+  }
 }

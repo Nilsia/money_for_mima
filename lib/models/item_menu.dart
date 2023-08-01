@@ -9,17 +9,17 @@ enum PagesEnum { home, due, transaction, settings }
 class ItemMenu {
   final String text;
   final Icon icon;
-  final PagesEnum pagesEnum;
+  PagesEnum pageTarget;
   bool isHovering = false;
 
-  ItemMenu(this.text, this.icon, this.pagesEnum);
+  ItemMenu(this.text, this.icon, this.pageTarget);
 
   void navigate(PagesEnum currentPage, BuildContext context, int accountID) {
     final Widget widget;
-    if (pagesEnum.name == currentPage.name) {
+    if (pageTarget.name == currentPage.name) {
       return;
     }
-    switch (pagesEnum) {
+    switch (pageTarget) {
       case PagesEnum.home:
         widget = const HomePage();
         break;
