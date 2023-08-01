@@ -392,6 +392,8 @@ class Account {
     // check for each if there is an update done
     _dueList.asMap().forEach((key, value) async {
       Due due = _dueList[key];
+
+      // manage DueOnce => same day or after now
       if (due is DueOnce &&
           (Tools.areSameDay(due.actionDate, now) ||
               now.isAfter(due.actionDate))) {
@@ -401,9 +403,13 @@ class Account {
             id,
             Transactions(
                 0, due.amount, now, due.outsider!, false, fullBalance));
-      } else if (due is Periodic) {
-        DateTime? d = DateTime.now().subtract(const Duration(days: 1));
-        while (now.isAfter(d!)) {
+      }
+
+      // Periodic
+      else if (due is Periodic) {
+        DateTime? d;
+
+        do {
           d = Tools.generateNextDateTime(due.period, due.lastActivated!,
               referenceDate: due.referenceDate);
           if (d == null) {
@@ -411,7 +417,6 @@ class Account {
             break;
           }
           if (Tools.areSameDay(d, now) || now.isAfter(d)) {
-            DateTime saveDate = due.lastActivated!;
             updated = true;
             if (await due.setLastActivatedDB(d, db) <= -1) {
               updated = false;
@@ -419,8 +424,8 @@ class Account {
             }
             if (await db.addTransactionsToAccount(
                     id,
-                    Transactions(0, due.amount, saveDate, due.outsider, false,
-                        fullBalance,
+                    Transactions(
+                        0, due.amount, d, due.outsider, false, fullBalance,
                         comment: "Opérations provenant d'une occurrence",
                         dueID: due.id)) <=
                 -1) {
@@ -428,7 +433,7 @@ class Account {
               break;
             }
           }
-        }
+        } while (now.isAfter(d!));
       }
     });
 
@@ -451,6 +456,16 @@ class Account {
 
   Future<int> setCreationDate(DateTime accountDate, DatabaseManager db) async {
     return db.setAccountCreationDate(id, accountDate);
+  }
+
+  /// search Transaction in currentTrList which has the same id than [trID]
+  int? indexOfTransaction(int trID) {
+    for (int i = 0; i < getCurrentTransactionList().length; i++) {
+      if (getCurrentTransactionList()[i].id == trID) {
+        return i;
+      }
+    }
+    return null;
   }
 
   Future<int> removeTransaction(int indexInList, DatabaseManager db) async {

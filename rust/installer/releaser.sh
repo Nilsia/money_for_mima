@@ -1,22 +1,22 @@
 #!/bin/bash
 
-if [ "${PWD##*/}" != 'linux-installer' ]; then
+if [ "${PWD##*/}" != 'installer' ]; then
     echo 'Please, go to the right place'
     exit 0
 fi
 
 actualDir="$(pwd)"
-version="$(cat '../../pubspec.yaml' | grep version: | cut -d ' ' -f2)"
-printf "Actual version : %s\n" $version
+version="$(grep version: ../../pubspec.yaml| cut -d ' ' -f2)"     
+printf "Actual version : %s\n" "$version"
 
 echo 'Building release for installer'
 cargo build --release
 echo "installer build finished"
 
 echo 'Builing release for upgrader'
-cd ../linux-upgrader/
+cd ../upgrader/ || exit
 cargo build --release
-cd ../linux-installer/
+cd ../installer/ || exit
 echo 'Upgrader build finished'
 
 # appName="money_for_mima-$version"
@@ -39,21 +39,21 @@ if [ -e "$target" ]; then
 fi
 mkdir $target
 
-cp  '../../target/release/linux-installer' "$target/install"
-cp '../../target/release/linux-upgrader' "$target/upgrade"
+cp  '../../target/release/installer' "$target/install"
+cp '../../target/release/upgrader' "$target/upgrade"
 cd ../../
-cd "$actualDir"
+cd "$actualDir" || exit
 flutter build linux --release
 cp -r -t "$target" ../../build/linux/x64/release/bundle/*
 echo "All files moved"
 
-cd "$actualDir"
-cd "$osD"
+cd "$actualDir" || exit
+cd "$osD" || exit
 if [ -e "./$appName.zip" ]; then
     rm "./$appName.zip"
 fi
 zip -r "./$appName.zip" $appName/* 
-cd "$actualDir"
+cd "$actualDir" || exit
 
 # echo 'Renaming files'
 # for file in $(find $releaseF -maxdepth 2 -name "*.zip"); do

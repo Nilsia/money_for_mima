@@ -30,6 +30,7 @@ Un interface de ligne de commande sera ouverte, suivez ensuite les instructions.
 ## Macos
 
 Non disponible pour le moment
+Cependant, il est utilisable sur cette plateforme mais l'installeur n'est pas présent, il vous faudra alors le compiler par vous même
 
 
 # Utilisation

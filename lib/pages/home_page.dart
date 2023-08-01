@@ -1,12 +1,21 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:money_for_mima/models/account.dart';
 import 'package:money_for_mima/models/action_item.dart';
 import 'package:money_for_mima/models/database_manager.dart';
+import 'package:money_for_mima/models/due.dart';
 import 'package:money_for_mima/models/item_menu.dart';
 import 'package:money_for_mima/pages/due_page.dart';
 import 'package:money_for_mima/pages/transaction_page.dart';
 import 'package:money_for_mima/utils/tools.dart';
+import 'package:observe_internet_connectivity/observe_internet_connectivity.dart';
+
+import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -25,8 +34,8 @@ class _HomePageState extends State<HomePage> {
       acBalanceCont = TextEditingController(),
       acDateCont = TextEditingController();
 
-  final Color accountsBorderColor = Colors.black;
-  final double accountsListWidth = 300;
+  static const Color accountsBorderColor = Colors.black;
+  static const double accountsListWidth = 300;
   bool hasInit = false;
 
   List<ActionItem> actionItemList = [
@@ -35,8 +44,19 @@ class _HomePageState extends State<HomePage> {
 
   Offset _tapPosition = Offset.zero;
 
+  bool hasInternet = false;
+
+  SharedPreferences? prefs;
+  String packageVersion = "";
+  PackageInfo? packageInfo;
+  bool showNewVersionDialog = true;
+  bool showErrorFetching = true;
+
   @override
   void initState() {
+    initSPPI().then((value) {
+      checkAppVersion();
+    });
     reloadAccountListSecure();
     initTextFieldsDialog();
     super.initState();
@@ -83,7 +103,7 @@ class _HomePageState extends State<HomePage> {
             // title
             Container(
               width: accountsListWidth,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                   border: Border(
                       left: BorderSide(color: accountsBorderColor),
                       right: BorderSide(color: accountsBorderColor),
@@ -174,42 +194,18 @@ class _HomePageState extends State<HomePage> {
                                   return;
                                 }
 
-                                for (int i = 0; i < accountList.length; i++) {
-                                  if (accountList[i].selected) {
-                                    accountList[i]
-                                        .setSelectionDB(
-                                            db, !accountList[i].selected)
-                                        .then((v) async {
-                                      if (v == -1) {
-                                        Tools.showNormalSnackBar(
-                                            context, "Une erreur est survenue");
-                                        return;
-                                      }
-                                      // error occurred
-                                      ac
-                                          .setSelectionDB(db, !ac.selected)
-                                          .then((value) async => {
-                                                if (value < 0)
-                                                  {
-                                                    Tools.showNormalSnackBar(
-                                                        context,
-                                                        "La modification s'est finie avec une erreur"),
-                                                  }
-                                                else
-                                                  {
-                                                    await reloadAccountList(),
-                                                  },
-                                              });
-                                    });
-                                    break;
-                                  }
-                                }
-                                ac.setSelectionDB(db, true).then((value) {
+                                unSelectAllAcounts().then((value) {
                                   if (value <= -1) {
-                                    Tools.showNormalSnackBar(context,
-                                        "Une erreur est survenue lors de la sélection du compte");
+                                    Tools.showNormalSnackBar(
+                                        context, "Une erreur est survenue");
                                   }
-                                  setState(() {});
+                                  ac.setSelectionDB(db, true).then((value) {
+                                    if (value <= -1) {
+                                      Tools.showNormalSnackBar(context,
+                                          "Une erreur est survenue lors de la sélection du compte");
+                                    }
+                                    setState(() {});
+                                  });
                                 });
 
                                 break;
@@ -245,23 +241,32 @@ class _HomePageState extends State<HomePage> {
                                   return;
                                 }
                                 db.removeAccount(ac.id).then((value) {
+                                  Future.delayed(
+                                      const Duration(milliseconds: 3000));
                                   if (value <= -1) {
                                     Tools.showNormalSnackBar(context,
                                         "La suppression du compte a échoué");
                                   } else {
-                                    reloadAccountList().then((value) {
-                                      if (accountList.isNotEmpty) {
-                                        accountList[0]
-                                            .setSelectionDB(db, true)
-                                            .then((value) {
-                                          if (value <= -1) {
-                                            Tools.showNormalSnackBar(context,
-                                                "Une erreur est survenue");
-                                          }
-                                          setState(() {});
-                                        });
-                                      }
-                                    });
+                                    accountList.removeAt(i);
+                                    Account? selectedAccount =
+                                        getSelectedAccount();
+                                    if (selectedAccount == null) {
+                                      reloadAccountList().then((value) {
+                                        if (accountList.isNotEmpty) {
+                                          accountList[0]
+                                              .setSelectionDB(db, true)
+                                              .then((value) {
+                                            if (value <= -1) {
+                                              Tools.showNormalSnackBar(context,
+                                                  "Une erreur est survenue");
+                                            }
+                                            setState(() {});
+                                          });
+                                        }
+                                      });
+                                    } else {
+                                      setState(() {});
+                                    }
                                   }
                                 });
                             }
@@ -305,7 +310,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             Text(
-              ac.fullBalance.toString(),
+              ac.fullBalance.toStringAsFixed(2),
               style: TextStyle(
                   color: ac.fullBalance >= 0 ? Colors.green : Colors.red,
                   fontSize: 20,
@@ -486,18 +491,16 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      // unselect previous account
-      Account? selectedAC = getSelectedAccount();
-      if (selectedAC != null) {
-        selectedAC.setSelectionDB(db, false);
-      }
+      // unselect all accounts
+      await unSelectAllAcounts();
 
+      // this function this new account selected
       Account ac =
           await db.addAccount(acNameCont.text.trim(), balance, "", accountDate);
       accountList.add(ac);
       setState(() {});
     }
-    // acount edition
+    // account edition
     else {
       if (balance != acParam.initialBalance) {
         db.setAccountInitialBalance(acParam.id, balance).then((value) {
@@ -575,6 +578,19 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
+  Future<int> unSelectAllAcounts() async {
+    int res = 0, tmp;
+    for (Account ac in accountList) {
+      if (ac.selected) {
+        tmp = await ac.setSelectionDB(db, false);
+        if (res == 0) {
+          res = tmp;
+        }
+      }
+    }
+    return res;
+  }
+
   void initTextFieldsDialog({Account? ac}) {
     acDateCont.text = DateFormat("dd/MM/yyyy")
         .format(ac == null ? accountDate : ac.creationDate!);
@@ -599,15 +615,18 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> reloadAccountList() async {
     BoolPointer updated = BoolPointer();
-    db.getAllAccounts(updated: updated).then((value) => {
-          accountList = value,
-          if (updated.i)
-            {
-              Tools.showNormalSnackBar(context,
-                  "Des transactions ont été ajoutées depuis des occurrences")
-            },
-          setState(() {})
-        });
+    db
+        .getAllAccounts(updated: updated, haveToGetDueList: true)
+        .then((value) => {
+              print(value),
+              if (updated.i)
+                {
+                  Tools.showNormalSnackBar(context,
+                      "Des transactions ont été ajoutées depuis des occurrences")
+                },
+              accountList = value,
+              setState(() {})
+            });
   }
 
   void goToEditAccount(int acID, PagesEnum e) {
@@ -626,6 +645,126 @@ class _HomePageState extends State<HomePage> {
             PageRouteBuilder(
                 pageBuilder: (_, __, ___) => TransactionPage(acID)));
         break;
+      case PagesEnum.settings:
+        break;
     }
+  }
+
+  Future<void> checkAppVersion() async {
+    hasInternet = await InternetConnectivity().hasInternetConnection;
+    if (hasInternet) {
+      try {
+        final response = await http.get(Uri.parse(
+            "https://leria-etud.univ-angers.fr/~ddasilva/money_for_mima/get_version.php?appVersion=$packageVersion"));
+        print(response.body);
+        // no error
+        if (response.statusCode == 200) {
+          const JsonDecoder decoder = JsonDecoder();
+          Map<String, dynamic> obj = decoder.convert(response.body);
+          if (!obj.containsKey("appVersion")) {
+            showDialogOnErrorVersionGetting();
+          } else {
+            if (showNewVersionDialog &&
+                obj["appVersion"].toString() != packageVersion) {
+              showDialogNewVersion(obj["appVersion"].toString());
+            }
+          }
+        } else {
+          if (showErrorFetching) {
+            showDialogOnErrorVersionGetting();
+          }
+        }
+      } on Exception catch (e) {
+        if (e.toString().contains("Failed host lookup:")) {
+          if (showErrorFetching) {
+            showDialogOnErrorVersionGetting();
+          }
+        }
+      }
+    }
+  }
+
+  void showDialogOnErrorVersionGetting() => showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+            title: const Text("Erreur requête"),
+            content: const SizedBox(
+              width: 400,
+              height: 150,
+              child: Column(
+                children: [
+                  Text(
+                      "Le serveur est inaccessible, veuillez vérifier votre connexion, si le problème persiste, il se peut que le serveur ait changé de nom de domaine, il est donc important de télécharger la nouvelle version"),
+                  SizedBox(
+                    height: 30,
+                  ),
+                  Row(
+                    children: [
+                      Checkbox(value: false, onChanged: null),
+                      Text("Ne plus afficher le message "),
+                    ],
+                  )
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("OK"))
+            ],
+          ));
+
+  void showDialogNewVersion(String newVersion) => showDialog(
+      context: context,
+      builder: (context) {
+        bool doNotShowAgain = false;
+        return StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
+                  title: const Text("Nouvelle version"),
+                  content: SizedBox(
+                      width: 300,
+                      height: 80,
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Text(
+                                "Vous êtes actuellement à la version $packageVersion, la nouvelle version $newVersion est disponible"),
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            Row(
+                              children: [
+                                Checkbox(
+                                    value: doNotShowAgain,
+                                    onChanged: (bool? v) async {
+                                      if (v != null) {
+                                        doNotShowAgain =
+                                            !await Tools.setShowNewVersion(!v,
+                                                sharedPreferences: prefs);
+                                        setState(() {});
+                                      }
+                                    }),
+                                const Text("Ne plus afficher ce message")
+                              ],
+                            )
+                          ],
+                        ),
+                      )),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text("OK"))
+                  ],
+                ));
+      });
+
+  Future<void> initSPPI() async {
+    prefs = await Tools.getSP();
+    packageInfo = await Tools.getPackageInfo();
+    showNewVersionDialog =
+        await Tools.getShowNewVersion(sharedPreferences: prefs);
+    showErrorFetching =
+        await Tools.getShowDialogOnError(sharedPreferences: prefs);
+    packageVersion = packageInfo!.version;
   }
 }

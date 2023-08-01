@@ -129,16 +129,21 @@ class Transactions {
   }
 
   void switchFlagged() {
-    if (flagged) {
-      flagged = false;
-    } else {
-      flagged = true;
-    }
+    flagged = !flagged;
   }
 
-  Future<int> editDB(DatabaseManager db, double? amount, DateTime date,
-      Outsider? outsider, int acID, String? comment) async {
-    return await db.editTransaction(id, amount, date, outsider, acID, flagged,
-        this.amount, comment != this.comment ? comment : null);
+  Future<int> editDB(DatabaseManager db, double? newAmount, DateTime newDate,
+      Outsider? newOutsider, int acID, String? newComment) async {
+    print("oldA = $amount, newA = $newAmount");
+    return await db.editTransaction(
+        trID: id,
+        newAmount: newAmount ?? amount,
+        newDate: newDate,
+        outsider: newOutsider,
+        acID: acID,
+        flagged: flagged,
+        oldAmount: amount,
+        comment: newComment != comment ? newComment : null,
+        oldDate: date!);
   }
 }

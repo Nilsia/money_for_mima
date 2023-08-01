@@ -1,5 +1,5 @@
 [package]
-name = "linux-upgrader"
+name = "upgrader"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,7 +8,13 @@ edition = "2021"
 [dependencies]
 reqwest = "0.11.18"
 fs_extra = "1.3.0"
-zip-extract = "0.1.2"
-dirs = "5.0.0"
 tokio = { version = "1.28.2", features = ["full"] }
 json = "0.12.4"
+async-trait = "0.1.72"
+
+[target.x86_64-unknown-linux-gnu.dependencies]
+zip-extract = "0.1.2"
+
+
+[target.x86_64-pc-windows-gnu.dependencies]
+zip = { version = "0.6.6", default-features = false }

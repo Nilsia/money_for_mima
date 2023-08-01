@@ -14,8 +14,6 @@ import 'package:money_for_mima/utils/tools.dart';
 
 import 'package:intl/intl.dart';
 
-// not all transactions removed
-
 class TransactionPage extends StatefulWidget {
   final int accountID;
 
@@ -52,6 +50,7 @@ class _TransactionPageState extends State<TransactionPage> {
 
   double tableHeight = 0;
   bool amountAutofocus = false, outsiderAutofocus = false;
+  FocusNode amountFocus = FocusNode(), outsiderFocus = FocusNode();
 
   List<Outsider> oList = [];
 
@@ -85,7 +84,8 @@ class _TransactionPageState extends State<TransactionPage> {
     color: Colors.red,
   );
 
-  DateTime selectedDate = DateTime.now();
+  DateTime today = DateTime.now();
+  DateTime selectedDate = DateTime(2023);
   List<int> clickedRowIndex = <int>[];
   int hoveringRowIndex = -1;
   int accountID = 0;
@@ -106,11 +106,14 @@ class _TransactionPageState extends State<TransactionPage> {
   static const BoxDecoration rightBorder =
       BoxDecoration(border: Border(right: BorderSide(color: Colors.black)));
 
-  bool changeAllOutsiderName = true;
+  bool changeAllOutsiderName = false;
 
   @override
   void initState() {
     accountID = super.widget.accountID;
+
+    today = DateTime(today.year, today.month, today.day);
+    selectedDate = today;
     initAll();
 
     initControllers();
@@ -193,7 +196,7 @@ class _TransactionPageState extends State<TransactionPage> {
   void initControllers({Transactions? tr}) {
     tr ??= Transactions.none();
     String outsiderContent = tr.outsider!.isNone() ? "" : tr.outsider!.name;
-    changeAllOutsiderName = true;
+    changeAllOutsiderName = false;
     selectedDate = tr.date!;
 
     commentRowController.text = tr.comment;
@@ -343,8 +346,8 @@ class _TransactionPageState extends State<TransactionPage> {
 
   Widget _buildAdderRow() {
     SDenum sd = SDenum("Tiers",
-        m: Tools.getOutsiderListName(oList),
-        dft: clickedRowIndex.isEmpty ? null : clickedRowIndex[0]);
+        map: Tools.getOutsiderListName(oList),
+        defaultt: clickedRowIndex.isEmpty ? null : clickedRowIndex[0]);
     return Container(
       height: rowAdderHeight,
       decoration: const BoxDecoration(
@@ -370,7 +373,7 @@ class _TransactionPageState extends State<TransactionPage> {
                   selectedDate = await Tools.selectDate(
                           context, selectedDate, dateController,
                           setState: () => setState(() {})) ??
-                      DateTime.now();
+                      today;
                 },
                 child: TextFormField(
                   controller: dateController,
@@ -384,11 +387,11 @@ class _TransactionPageState extends State<TransactionPage> {
           Container(
             decoration: rightBorder,
             width: flaggedWidth,
-            child: Align(
+            child: const Align(
               alignment: Alignment.center,
               child: Checkbox(
                 value: false,
-                onChanged: (bool? value) {},
+                onChanged: null,
               ),
             ),
           ), //
@@ -401,18 +404,28 @@ class _TransactionPageState extends State<TransactionPage> {
               child: Center(
                 child: Row(
                   children: [
+                    // icon + / -
                     InkWell(
                         onTap: () => changeAmountStateRow(),
                         child: amountStateIconRow),
+                    // text input for amount
                     SizedBox(
                       width: amountWidth - 31,
                       child: TextField(
                         autofocus: amountAutofocus,
+                        focusNode: amountFocus,
                         textAlign: TextAlign.center,
                         controller: amountController,
                         decoration: const InputDecoration(
                             border: OutlineInputBorder(), labelText: "montant"),
                         onSubmitted: (String? value) async {
+                          /* FocusScope.of(context).requestFocus(outsiderFocus);
+                          outsiderFocus.requestFocus();
+                          print(outsiderFocus.hasFocus);
+                          amountFocus.requestFocus();
+                          FocusScope.of(context).requestFocus(amountFocus); */
+
+                          print(amountFocus.hasFocus);
                           if (!allWellCompleted(isRowAdder: true)) {
                             amountAutofocus = true;
                             setState(() {});
@@ -434,32 +447,37 @@ class _TransactionPageState extends State<TransactionPage> {
             width: balanceWidth,
           ), */
           // outsider
-          Container(
-            decoration: rightBorder,
-            width: outsiderWidth,
-            child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Tools.buildSearchBar(
+          Focus(
+            focusNode: outsiderFocus,
+            child: Container(
+              decoration: rightBorder,
+              width: outsiderWidth,
+              child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Tools.buildSearchBar(
                     controller: outsiderRowController,
                     sd: sd,
                     width: outsiderWidth - 40 - 1,
                     onSelected: (Object? o) {},
-                    setState: () => setState(() {}))
-                /* TextField(
-                controller: outsiderController,
-                decoration: const InputDecoration(border: OutlineInputBorder()),
-                autofocus: outsiderAutofocus,
-                onSubmitted: (String? value) async {
-                  if (!allWellCompleted()) {
-                    outsiderAutofocus = true;
-                    setState(() {});
-                    return;
-                  }
-                  outsiderAutofocus = false;
-                  await addTransactions();
-                },
-              ) ,*/
-                ),
+                    setState: () =>
+                        setState(() {}), /* focusNode: outsiderFocus */
+                  )
+                  /* TextField(
+                  controller: outsiderController,
+                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                  autofocus: outsiderAutofocus,
+                  onSubmitted: (String? value) async {
+                    if (!allWellCompleted()) {
+                      outsiderAutofocus = true;
+                      setState(() {});
+                      return;
+                    }
+                    outsiderAutofocus = false;
+                    await addTransactions();
+                  },
+                ) ,*/
+                  ),
+            ),
           ),
           // commet
           SizedBox(
@@ -545,19 +563,22 @@ class _TransactionPageState extends State<TransactionPage> {
                       child: Center(
                         child: Checkbox(
                           value: tr.flagged,
-                          onChanged: (bool? value) async {
-                            tr
-                                .switchFlaggedDB(db, account.id)
-                                .then((value) async {
-                              if (value <= -1) {
-                                Tools.showNormalSnackBar(
-                                    context, "Une erreur est survenue");
-                              }
+                          onChanged: tr.date!.isAfter(today)
+                              ? null
+                              : (bool? value) async {
+                                  tr
+                                      .switchFlaggedDB(db, account.id)
+                                      .then((value) async {
+                                    if (value <= -1) {
+                                      Tools.showNormalSnackBar(
+                                          context, "Une erreur est survenue");
+                                    }
 
-                              account.editFlaggedBalance(tr.flagged, tr.amount);
-                              setState(() {});
-                            });
-                          },
+                                    account.editFlaggedBalance(
+                                        tr.flagged, tr.amount);
+                                    setState(() {});
+                                  });
+                                },
                         ),
                       ),
                     ),
@@ -696,7 +717,7 @@ class _TransactionPageState extends State<TransactionPage> {
     }
   }
 
-  bool allWellCompleted({required bool isRowAdder}) {
+  bool allWellCompleted({required bool isRowAdder, bool showMessage = true}) {
     DialogError d = allControllerCompleted(isRowAdder: isRowAdder);
 
     switch (d) {
@@ -866,9 +887,9 @@ class _TransactionPageState extends State<TransactionPage> {
     }
     const double width = 350;
     const double height = 250;
-    SDenum sd = SDenum("Tiers", m: Tools.getOutsiderListName(oList));
+    SDenum sd = SDenum("Tiers", map: Tools.getOutsiderListName(oList));
     if (clickedRowIndex.isNotEmpty) {
-      sd.dft = clickedRowIndex[0];
+      sd.defaultt = clickedRowIndex[0];
     }
 
     List<Widget> actions = [
@@ -885,23 +906,32 @@ class _TransactionPageState extends State<TransactionPage> {
               backgroundColor: MaterialStateProperty.all(Colors.green)),
           onPressed: () => submitEditTransactionDialog(tr),
           child: const Text("VALIDER")),
+      // remove button
       ElevatedButton(
         onPressed: () async {
-          bool? v = await Tools.confirmRemoveItem(context,
-              "Suppression d'une occurrence", "l'occurrence sélectionée ?");
-          if (v == null) {
-            return;
-          }
-          if (v) {
-            account.removeDue(clickedRowIndex[0], db).then((value) => {
-                  if (value <= -1)
-                    {
-                      Tools.showNormalSnackBar(context,
-                          "Une erreur est survenur lors de la suppresion de l'occurrence"),
-                    },
-                  closeTransactionsDialog(),
-                });
-          }
+          await Tools.confirmRemoveItem(context, "Suppression d'une occurrence",
+                  "l'occurrence sélectionée ?")
+              .then((bool? v) {
+            if (v == null) {
+              return;
+            }
+            if (v) {
+              int? trIndex = account.indexOfTransaction(tr.id);
+              if (trIndex == null) {
+                Tools.showNormalSnackBar(context,
+                    "Une erreur est survenue, il se peut que l'opération ne soit pas supprimée.");
+                return;
+              }
+              account.removeTransaction(trIndex, db).then((value) => {
+                    if (value <= -1)
+                      {
+                        Tools.showNormalSnackBar(context,
+                            "Une erreur est survenur lors de la suppresion de l'occurrence"),
+                      },
+                    closeTransactionsDialog(),
+                  });
+            }
+          });
         },
         style:
             ButtonStyle(backgroundColor: MaterialStateProperty.all(Colors.red)),
@@ -931,7 +961,7 @@ class _TransactionPageState extends State<TransactionPage> {
                                             selectedDate,
                                             dateController,
                                             setState: () => setState(() {})) ??
-                                        DateTime.now();
+                                        today;
                                   },
                                   child: TextFormField(
                                     controller: dateController,
@@ -980,10 +1010,10 @@ class _TransactionPageState extends State<TransactionPage> {
                             ),
                           ),
                         ),
-                        // change all outsiders name
                         const SizedBox(
                           height: 5,
                         ),
+                        // change all outsiders name
                         Row(
                           children: [
                             Checkbox(
@@ -1031,10 +1061,11 @@ class _TransactionPageState extends State<TransactionPage> {
 
     String outsiderName = getOutsiderControllerText(isRowAdder: false);
 
-    double a = double.tryParse(amountController.text.trim())!;
+    // check before
+    double newAmount = double.tryParse(amountController.text.trim())!;
 
     if (isDebitIconDialog()) {
-      a *= -1;
+      newAmount *= -1;
     }
 
     if (changeAllOutsiderName &&
@@ -1054,7 +1085,7 @@ class _TransactionPageState extends State<TransactionPage> {
     tr
         .editDB(
             db,
-            a,
+            newAmount,
             selectedDate,
             outsiderName == tr.outsider!.name
                 ? null
@@ -1096,8 +1127,10 @@ class _TransactionPageState extends State<TransactionPage> {
 
   void reloadAccount() {
     final duration = Stopwatch()..start();
-    db.getAccount(accountID, nbTr: nbTr).then((value) {
+    db.getAccount(accountID, nbTr: nbTr, haveToGetTrList: true).then((value) {
       if (value == null) {
+        Tools.showNormalSnackBar(context,
+            "Une erreur est survenuem, impossible de récupérer votre compte");
         Navigator.push(context,
             PageRouteBuilder(pageBuilder: (_, __, ___) => const HomePage()));
       } else {

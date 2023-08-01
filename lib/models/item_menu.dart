@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:money_for_mima/pages/due_page.dart';
 import 'package:money_for_mima/pages/home_page.dart';
+import 'package:money_for_mima/pages/settings_page.dart';
 import 'package:money_for_mima/pages/transaction_page.dart';
 
-enum PagesEnum {
-  home,
-  due,
-  transaction
-}
+enum PagesEnum { home, due, transaction, settings }
 
 class ItemMenu {
   final String text;
@@ -31,6 +28,9 @@ class ItemMenu {
         break;
       case PagesEnum.transaction:
         widget = TransactionPage(accountID);
+        break;
+      case PagesEnum.settings:
+        widget = SettingsPage(accountID);
         break;
     }
 

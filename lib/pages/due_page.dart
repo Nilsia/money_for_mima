@@ -632,7 +632,7 @@ class _DuePageState extends State<DuePage> {
           ));
     }
 
-    SDenum sd = SDenum("tiers", m: Tools.getOutsiderListName(oList));
+    SDenum sd = SDenum("tiers", map: Tools.getOutsiderListName(oList));
 
     double width = 400, height = 300;
 
