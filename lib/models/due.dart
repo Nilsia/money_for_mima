@@ -5,7 +5,7 @@ import 'package:money_for_mima/models/outsider.dart';
 
 class Due {
   int id;
-  double amount;
+  int amount;
   String comment = "";
   Outsider? outsider;
 
@@ -17,7 +17,7 @@ class Due {
 
   static Due? fromMap(Map<String, Object?> map, Outsider outsider) {
     int id;
-    double amount;
+    int amount;
     String comment = "";
     if (map.containsKey("id")) {
       id = int.parse(map["id"].toString());
@@ -26,7 +26,7 @@ class Due {
     }
 
     if (map.containsKey("amount")) {
-      amount = double.parse(map["amount"].toString());
+      amount = int.parse(map["amount"].toString());
     } else {
       return null;
     }
@@ -124,8 +124,8 @@ class Periodic extends Due {
     return m;
   }
 
-  static Periodic? fromJson(String jsonStr, int id, double amount,
-      String comment, Outsider outsider) {
+  static Periodic? fromJson(
+      String jsonStr, int id, int amount, String comment, Outsider outsider) {
     final dynamic jsonClass = json.decode(jsonStr);
     DateTime? refDate = DateTime.tryParse(jsonClass["referenceDate"]);
     DateTime? lastActivatedDate = DateTime.tryParse(jsonClass["lastActivated"]);
@@ -203,8 +203,8 @@ class DueOnce extends Due {
     return m;
   }
 
-  static DueOnce? fromJson(String jsonStr, int id, double amount,
-      String comment, Outsider outsider) {
+  static DueOnce? fromJson(
+      String jsonStr, int id, int amount, String comment, Outsider outsider) {
     final dynamic jsonClass = json.decode(jsonStr);
     DateTime? dateTime = DateTime.tryParse(jsonClass["actionDate"]);
     return dateTime != null

@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:money_for_mima/models/account.dart';
 import 'package:money_for_mima/models/action_item.dart';
 import 'package:money_for_mima/models/database_manager.dart';
-import 'package:money_for_mima/models/due.dart';
 import 'package:money_for_mima/models/item_menu.dart';
 import 'package:money_for_mima/pages/due_page.dart';
 import 'package:money_for_mima/pages/transaction_page.dart';
@@ -310,7 +309,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             Text(
-              ac.fullBalance.toStringAsFixed(2),
+              (ac.fullBalance / 100).toString(),
               style: TextStyle(
                   color: ac.fullBalance >= 0 ? Colors.green : Colors.red,
                   fontSize: 20,
@@ -472,12 +471,19 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final double? balance = double.tryParse(acBalanceCont.text.trim());
-    if (balance == null) {
+    double? balanceDouble = double.tryParse(acBalanceCont.text.trim());
+    if (balanceDouble == null) {
       SnackBar snackBar = const SnackBar(content: Text("Solde founi invalide"));
       ScaffoldMessenger.of(context).showSnackBar(snackBar);
       return;
     }
+
+    balanceDouble *= 100;
+    if (balanceDouble.toInt() != balanceDouble) {
+      Tools.showNormalSnackBar(context,
+          "Veuillez fournir un montant initial possédant au maximum 2 décimales.");
+    }
+    int balance = balanceDouble.toInt();
 
     // new account
     if (acParam == null) {
@@ -618,7 +624,6 @@ class _HomePageState extends State<HomePage> {
     db
         .getAllAccounts(updated: updated, haveToGetDueList: true)
         .then((value) => {
-              print(value),
               if (updated.i)
                 {
                   Tools.showNormalSnackBar(context,
@@ -656,7 +661,6 @@ class _HomePageState extends State<HomePage> {
       try {
         final response = await http.get(Uri.parse(
             "https://leria-etud.univ-angers.fr/~ddasilva/money_for_mima/get_version.php?appVersion=$packageVersion"));
-        print(response.body);
         // no error
         if (response.statusCode == 200) {
           const JsonDecoder decoder = JsonDecoder();

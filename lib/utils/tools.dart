@@ -19,6 +19,10 @@ class BoolPointer {
 
 enum PopupAction { edit, delete, add }
 
+extension NumberExtension on num {
+  bool get isInteger => this is int;
+}
+
 class SDenum {
   int? defaultt;
   String label;
@@ -38,6 +42,7 @@ enum DialogError {
   invalidOutsider,
   unknown,
   noError,
+  tooMuchPrecision,
 }
 
 class Tools {

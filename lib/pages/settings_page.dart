@@ -63,7 +63,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     windowWidth = max(1000, MediaQuery.of(context).size.width);
     return Scaffold(
-      appBar: Tools.generateNavBar(PagesEnum.settings, [account]),
+      appBar: Tools.generateNavBar(PagesEnum.settings, []),
       body: SafeArea(
           child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,

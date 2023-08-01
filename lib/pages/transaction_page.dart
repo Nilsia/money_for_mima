@@ -206,7 +206,7 @@ class _TransactionPageState extends State<TransactionPage> {
         text: DateFormat("dd/MM/yyyy").format(selectedDate));
 
     amountController = TextEditingController(
-        text: tr.amount == 0 ? "" : tr.amount.abs().toString());
+        text: tr.amount == 0 ? "" : (tr.amount / 100).abs().toString());
 
     outsiderDialogController = TextEditingController(text: outsiderContent);
     outsiderRowController.text = outsiderContent;
@@ -241,7 +241,7 @@ class _TransactionPageState extends State<TransactionPage> {
               child: Row(
                 children: [
                   Text(
-                      "Solde pointé : ${account.flaggedBalance.toStringAsFixed(2)}"),
+                      "Solde pointé : ${(account.flaggedBalance / 100).toString()}"),
                 ],
               ),
             ),
@@ -249,7 +249,7 @@ class _TransactionPageState extends State<TransactionPage> {
                 margin: const EdgeInsets.all(8),
                 width: infoWidth,
                 child: Text(
-                    "Solde total : ${account.fullBalance.toStringAsFixed(2)}"))
+                    "Solde total : ${(account.fullBalance / 100).toString()}"))
           ]),
           SizedBox(
             width: 100,
@@ -425,7 +425,6 @@ class _TransactionPageState extends State<TransactionPage> {
                           amountFocus.requestFocus();
                           FocusScope.of(context).requestFocus(amountFocus); */
 
-                          print(amountFocus.hasFocus);
                           if (!allWellCompleted(isRowAdder: true)) {
                             amountAutofocus = true;
                             setState(() {});
@@ -595,7 +594,7 @@ class _TransactionPageState extends State<TransactionPage> {
                           i, clickedRowIndex, actionItemList,
                           setState: () => setState(() {})),
                       child: Tools.buildTableCell(
-                          tr.amount.toString(), rowHeight, amountWidth,
+                          (tr.amount / 100).toString(), rowHeight, amountWidth,
                           alignment: Alignment.center,
                           decoration: rightBorder,
                           color: amountColor,
@@ -734,12 +733,21 @@ class _TransactionPageState extends State<TransactionPage> {
 
       case DialogError.noError:
         return true;
+      case DialogError.tooMuchPrecision:
+        Tools.showNormalSnackBar(context,
+            "Veuillez fournir un montant possédant au maximum 2 décimales.");
+        return false;
     }
   }
 
   DialogError allControllerCompleted({required bool isRowAdder}) {
-    if (double.tryParse(amountController.text.trim()) == null) {
+    double? amountTMP = double.tryParse(amountController.text.trim());
+    if (amountTMP == null) {
       return DialogError.invalidAmount;
+    }
+    amountTMP *= 100;
+    if (amountTMP.toInt() != amountTMP) {
+      return DialogError.tooMuchPrecision;
     } else if ((isRowAdder && outsiderRowController.text.trim().isEmpty) ||
         (!isRowAdder && outsiderDialogController.text.trim().isEmpty)) {
       return DialogError.invalidOutsider;
@@ -757,7 +765,7 @@ class _TransactionPageState extends State<TransactionPage> {
     oList.add(Outsider(0, outsiderName));
 
     // cannot be null
-    double? amount = double.tryParse(amountController.text.trim())!;
+    int amount = (double.tryParse(amountController.text.trim())! * 100).toInt();
     await db.addTransactionsToAccount(
         account.id,
         Transactions(0, amount.abs() * (isDebitIconRow() ? -1 : 1),
@@ -1062,7 +1070,8 @@ class _TransactionPageState extends State<TransactionPage> {
     String outsiderName = getOutsiderControllerText(isRowAdder: false);
 
     // check before
-    double newAmount = double.tryParse(amountController.text.trim())!;
+    int newAmount =
+        (double.tryParse(amountController.text.trim())! * 100).toInt();
 
     if (isDebitIconDialog()) {
       newAmount *= -1;

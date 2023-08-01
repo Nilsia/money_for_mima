@@ -4,7 +4,7 @@ import 'package:money_for_mima/utils/tools.dart';
 
 class Transactions {
   int id;
-  double amount, acBalance;
+  int amount, acBalance;
   DateTime? date;
   Outsider? outsider;
   bool flagged;
@@ -36,7 +36,7 @@ class Transactions {
   static Transactions? fromMap(Map<String, Object?> map) {
     Transactions tr = Transactions.none();
     if (map.containsKey("amount")) {
-      tr.amount = double.parse(map["amount"].toString());
+      tr.amount = int.parse(map["amount"].toString());
     } else {
       return null;
     }
@@ -69,7 +69,7 @@ class Transactions {
     }
 
     if (map.containsKey("balanceAcInMoment")) {
-      tr.acBalance = double.tryParse(
+      tr.acBalance = int.tryParse(
             map["balanceAcInMoment"].toString(),
           ) ??
           0;
@@ -132,9 +132,8 @@ class Transactions {
     flagged = !flagged;
   }
 
-  Future<int> editDB(DatabaseManager db, double? newAmount, DateTime newDate,
+  Future<int> editDB(DatabaseManager db, int? newAmount, DateTime newDate,
       Outsider? newOutsider, int acID, String? newComment) async {
-    print("oldA = $amount, newA = $newAmount");
     return await db.editTransaction(
         trID: id,
         newAmount: newAmount ?? amount,

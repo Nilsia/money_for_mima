@@ -9,7 +9,7 @@ class Account {
   String designation, comment;
   bool onlyNth = true, generatedFastly = false, selected;
   bool favorite;
-  double fullBalance, initialBalance, flaggedBalance;
+  int fullBalance, initialBalance, flaggedBalance;
   List<Transactions> _currentTransactionsList, _fullTransactionList = [];
   Map<String, List<Transactions>> trListMap = {};
   List<Due> _dueList;
@@ -234,7 +234,7 @@ class Account {
 
     if (map.containsKey("initBalance")) {
       try {
-        ac.initialBalance = double.parse(map["initBalance"].toString());
+        ac.initialBalance = int.parse(map["initBalance"].toString());
       } catch (e) {
         return null;
       }
@@ -244,7 +244,7 @@ class Account {
 
     if (map.containsKey("fullBalance")) {
       try {
-        ac.fullBalance = double.parse(map["fullBalance"].toString());
+        ac.fullBalance = int.parse(map["fullBalance"].toString());
       } catch (e) {
         return null;
       }
@@ -254,7 +254,7 @@ class Account {
 
     if (map.containsKey("flaggedBalance")) {
       try {
-        ac.flaggedBalance = double.parse(map["flaggedBalance"].toString());
+        ac.flaggedBalance = int.parse(map["flaggedBalance"].toString());
       } catch (e) {
         return null;
       }
@@ -332,7 +332,7 @@ class Account {
     return await db.setFavorite(id, favorite);
   }
 
-  void editFlaggedBalance(bool flagged, double amount) {
+  void editFlaggedBalance(bool flagged, int amount) {
     final int coef = flagged == true ? 1 : -1;
     flaggedBalance += amount * coef;
   }
@@ -433,7 +433,7 @@ class Account {
               break;
             }
           }
-        } while (now.isAfter(d!));
+        } while (now.isAfter(d));
       }
     });
 

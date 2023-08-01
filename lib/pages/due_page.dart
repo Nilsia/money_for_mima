@@ -167,7 +167,7 @@ class _DuePageState extends State<DuePage> {
                 child: Row(
                   children: [
                     Text(
-                        "Solde pointé : ${account.flaggedBalance.toStringAsFixed(2)}"),
+                        "Solde pointé : ${(account.flaggedBalance / 100).toString()}"),
                   ],
                 ),
               ),
@@ -175,7 +175,7 @@ class _DuePageState extends State<DuePage> {
                   margin: const EdgeInsets.all(8),
                   width: infoWidth,
                   child: Text(
-                      "Solde total : ${account.fullBalance.toStringAsFixed(2)}"))
+                      "Solde total : ${(account.fullBalance / 100).toString()}"))
             ]),
           ),
         ],
@@ -276,7 +276,7 @@ class _DuePageState extends State<DuePage> {
                       setState(() {});
                     },
                     child: Tools.buildTableCell(
-                        due.amount.toString(), rowHeight, amountWidth,
+                        (due.amount / 100).toString(), rowHeight, amountWidth,
                         decoration: rightBorder,
                         alignment: Alignment.center,
                         color: amountColor,
@@ -365,7 +365,7 @@ class _DuePageState extends State<DuePage> {
             ? Tools.formatDate(date)
             : Tools.formatDate(selectedDate));
     amountController = TextEditingController(
-        text: due.amount == 0 ? "" : due.amount.abs().toString());
+        text: due.amount == 0 ? "" : (due.amount / 100).abs().toString());
     outsiderController = TextEditingController();
     outsiderController = TextEditingController(
         text: due.outsider!.isNone() ? "" : due.outsider!.name);
@@ -779,14 +779,20 @@ class _DuePageState extends State<DuePage> {
       case DialogError.invalidOutsider:
         Tools.showNormalSnackBar(context, "L'intitulé du tiers est invalide");
         return;
+      case DialogError.tooMuchPrecision:
+        Tools.showNormalSnackBar(context,
+            "Veuillez fournir un montant comportant au maximum 2 chiffres après la virgule.");
+        return;
       case DialogError.unknown:
       case DialogError.noError:
       case DialogError.dateAfter:
     }
 
     // are verified above
-    double amount = double.tryParse(amountController.text.trim())! *
-        (isDebitIcon() ? -1 : 1);
+    int amount = double.tryParse(amountController.text.trim())!.toInt() *
+        (isDebitIcon() ? -1 : 1) *
+        100;
+
     Due newDue;
 
     // DueOnce
@@ -899,8 +905,13 @@ class _DuePageState extends State<DuePage> {
   }
 
   DialogError allControllerCompleted(Period? period) {
-    if (double.tryParse(amountController.text.trim()) == null) {
+    double? amountTMP = double.tryParse(amountController.text.trim());
+    if (amountTMP == null) {
       return DialogError.invalidAmount;
+    }
+    amountTMP *= 100;
+    if (amountTMP.toInt() != amountTMP) {
+      return DialogError.tooMuchPrecision;
     } else if (period == null &&
         (Tools.areSameDay(DateTime.now(), selectedDate) ||
             selectedDate.isBefore(DateTime.now()))) {
