@@ -111,16 +111,6 @@ pub trait CommonFunctions {
                 let mut outfile = fs::File::create(&outpath)?;
                 io::copy(&mut file, &mut outfile)?;
             }
-
-            // Get and Set permissions
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-
-                if let Some(mode) = file.unix_mode() {
-                    fs::set_permissions(&outpath, fs::Permissions::from_mode(mode))?;
-                }
-            }
         }
 
         Ok(())
@@ -293,7 +283,10 @@ pub trait CommonFunctions {
             .unwrap_or(&self.load_config_file()?)
             .get("version")
         {
-            Some(version) => Ok(version.to_string()),
+            Some(version) => match version.as_str() {
+                Some(s) => Ok(s.to_string()),
+                None => Err(Box::new(CustomError::CannotGetLocalVersion)),
+            },
             None => Err(Box::new(CustomError::CannotGetLocalVersion)),
         }
     }

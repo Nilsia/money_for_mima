@@ -52,7 +52,7 @@ cp '../../target/release/uninstaller' "$target/uninstall"
 
 # cd ../../
 cd "$actualDir" || exit
-flutter build linux --release
+# flutter build linux --release
 cp -r -t "$target" ../../build/linux/x64/release/bundle/*
 echo "All files moved"
 

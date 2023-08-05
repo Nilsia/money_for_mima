@@ -69,17 +69,18 @@ impl Upgrader {
         // verify it is already up to date
         let remote_version = self.get_remote_version().await?;
         let local_version = self.get_local_version(None).await?;
+        println!(
+            "La version actuelle de Money For Mima est la suivante : {}",
+            local_version
+        );
         if remote_version == local_version {
-            println!(
-                "Money For Mima est déjà à jour. La version actuelle est : {}",
-                remote_version
-            );
+            println!("Money For Mima est déjà à jour.");
             return Ok(());
         }
 
         if ask {
             let mut answer = String::new();
-            print!("La version actuelle est : {}\nLa nouvelle version disponible est : {}\nSouhaitez-vous mettre à jour Money For Mima ? (O/n) : ", local_version, remote_version);
+            print!("Une nouvelle version de Money For Mima est disponible ({})\nSouhaitez-vous mettre à jour Money For Mima ? (O/n) : ",  remote_version);
             std::io::stdout().flush()?;
             std::io::stdin()
                 .read_line(&mut answer)
