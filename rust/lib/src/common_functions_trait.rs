@@ -18,9 +18,9 @@ pub type DataHashMap = HashMap<String, String>;
 #[async_trait::async_trait]
 pub trait CommonFunctions {
     fn system(&self) -> &str;
-    fn log_filename(&mut self) -> &mut Option<PathBuf>;
-    fn files_container(&self) -> &Option<PathBuf>;
-    fn remote_data(&mut self) -> &mut Option<DataHashMap>;
+    fn log_filename(&mut self) -> Option<&mut PathBuf>;
+    fn files_container(&self) -> Option<&PathBuf>;
+    fn remote_data(&mut self) -> Option<&mut DataHashMap>;
     fn exec_extension(&self) -> &str;
 
     /// Download the zip file that contain the files to run Money For Mima, the only element
@@ -126,13 +126,14 @@ pub trait CommonFunctions {
             if self.files_container().is_none() {
                 return Err(Box::new(CustomError::UnkownError));
             }
-            *self.log_filename() = Some(self.files_container().as_ref().unwrap().join("exec.log"));
+            let mut log_filename = self.files_container().unwrap().join("exec.log");
+            let _ = self.log_filename().insert(&mut log_filename);
         }
 
         let date = chrono::offset::Utc::now();
         let mut log_file = OpenOptions::new()
             .append(true)
-            .open(self.log_filename().as_ref().unwrap())?;
+            .open(self.log_filename().unwrap())?;
         log_file.write_all(
             &vec![
                 date.to_string(),
@@ -149,8 +150,9 @@ pub trait CommonFunctions {
     /// set self.remote_config for future use. After this call self.remote_data cannot be None, if
     /// already set return the value get before
     async fn get_remote_data(&mut self) -> Result<&mut DataHashMap, Error> {
-        if self.remote_data().as_ref().is_none() {
-            *self.remote_data() = Some(DataHashMap::new());
+        if self.remote_data().is_none() {
+            let mut new_data = DataHashMap::new();
+            let _ = self.remote_data().insert(&mut new_data);
             let octocrab = octocrab::instance();
             let last_release_tmp = octocrab
                 .repos("Nilsia", "money_for_mima")
@@ -166,7 +168,6 @@ pub trait CommonFunctions {
 
             // insert version into remote data
             self.remote_data()
-                .as_mut()
                 .unwrap()
                 .insert("version".to_string(), last_release.tag_name.to_owned());
 
@@ -193,12 +194,12 @@ pub trait CommonFunctions {
             }
 
             // insert download_url into remote data for later use
-            self.remote_data().as_mut().unwrap().insert(
+            self.remote_data().unwrap().insert(
                 "download_url".to_string(),
                 download_url.get(0).unwrap().as_str().to_string(),
             );
         }
-        Ok(self.remote_data().as_mut().unwrap())
+        Ok(self.remote_data().unwrap())
     }
 
     // async fn manage_new_data(&mut self) -> Result<(), Error> {
@@ -242,12 +243,7 @@ pub trait CommonFunctions {
     /// load config from local file and if it does not exist, file is created with the version that
     /// the program holds
     fn load_config_file(&self) -> Result<Value, Error> {
-        let config_filename = PathBuf::from(
-            self.files_container()
-                .as_ref()
-                .unwrap()
-                .join(CONFIG_FILE_NAME),
-        );
+        let config_filename = PathBuf::from(self.files_container().unwrap().join(CONFIG_FILE_NAME));
         let config_file = match OpenOptions::new()
             .read(true)
             .create(false)

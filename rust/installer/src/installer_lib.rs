@@ -31,16 +31,16 @@ impl CommonFunctions for Installer {
         &self.system
     }
 
-    fn log_filename(&mut self) -> &mut Option<PathBuf> {
-        &mut self.log_filename
+    fn log_filename(&mut self) -> Option<&mut PathBuf> {
+        self.log_filename.as_mut()
     }
 
-    fn files_container(&self) -> &Option<PathBuf> {
-        &self.files_destination
+    fn files_container(&self) -> Option<&PathBuf> {
+        self.files_destination.as_ref()
     }
 
-    fn remote_data(&mut self) -> &mut Option<DataHashMap> {
-        &mut self.remote_data
+    fn remote_data(&mut self) -> Option<&mut DataHashMap> {
+        self.remote_data.as_mut()
     }
 
     fn exec_extension(&self) -> &str {

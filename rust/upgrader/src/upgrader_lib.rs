@@ -22,16 +22,16 @@ impl CommonFunctions for Upgrader {
         &self.system
     }
 
-    fn log_filename(&mut self) -> &mut Option<PathBuf> {
-        &mut self.log_filename
+    fn log_filename(&mut self) -> Option<&mut PathBuf> {
+        self.log_filename.as_mut()
     }
 
-    fn files_container(&self) -> &Option<PathBuf> {
-        &self.current_dir
+    fn files_container(&self) -> Option<&PathBuf> {
+        self.current_dir.as_ref()
     }
 
-    fn remote_data(&mut self) -> &mut Option<DataHashMap> {
-        &mut self.remote_value
+    fn remote_data(&mut self) -> Option<&mut DataHashMap> {
+        self.remote_value.as_mut()
     }
 
     fn exec_extension(&self) -> &str {
