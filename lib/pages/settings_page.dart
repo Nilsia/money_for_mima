@@ -109,12 +109,12 @@ class _SettingsPageState extends State<SettingsPage> {
                             buildPopupSettings(),
                             InkWell(
                               onTap: () {
-                                print("inside");
                                 VersionManager.searchNewVersion(
                                     context: context,
                                     showNewVersionDialog: true,
                                     showErrorFetching: true,
-                                    showCheckBox: false);
+                                    showCheckBox: false,
+                                    showNetworkError: true);
                               },
                               child: const SizedBox(
                                 width: 250,
@@ -180,29 +180,28 @@ class _SettingsPageState extends State<SettingsPage> {
               decoration: const BoxDecoration(
                   border: Border.symmetric(
                       vertical: BorderSide(color: Colors.black))),
-              child: Row(
-                children: [
-                  Checkbox(
-                      value: showNewVersionDialog,
-                      onChanged: ((value) async {
-                        if (value != null) {
-                          showNewVersionDialog = await Tools.setShowNewVersion(
-                            value,
-                            sharedPreferences: prefs,
-                          );
-                          setState(() {});
-                        }
-                      })),
-                  const SizedBox(
-                    width: popupSettingsWigth - 34,
-                    child: Text(
-                      "Afficher le message de nouvelle version",
-                      softWrap: true,
-                      maxLines: 8,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  )
-                ],
+              child: InkWell(
+                onTap: () async {
+                  showNewVersionDialog = await Tools.setShowNewVersion(
+                    !showNewVersionDialog,
+                    sharedPreferences: prefs,
+                  );
+                  setState(() {});
+                },
+                child: Row(
+                  children: [
+                    Checkbox(value: showNewVersionDialog, onChanged: (v) => {}),
+                    const SizedBox(
+                      width: popupSettingsWigth - 34,
+                      child: Text(
+                        "Afficher le message de nouvelle version",
+                        softWrap: true,
+                        maxLines: 8,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )
+                  ],
+                ),
               ),
             ),
 
@@ -213,29 +212,28 @@ class _SettingsPageState extends State<SettingsPage> {
                       bottom: BorderSide(color: Colors.black),
                       right: BorderSide(color: Colors.black),
                       left: BorderSide(color: Colors.black))),
-              child: Row(
-                children: [
-                  Checkbox(
-                      value: showErrorFetching,
-                      onChanged: (v) async {
-                        if (v != null) {
-                          showErrorFetching = await Tools.setShowDialogOnError(
-                              v,
-                              sharedPreferences: prefs);
-                          setState(() {});
-                        }
-                      }),
-                  const SizedBox(
-                      width: popupSettingsWigth - 34,
-                      child: Text.rich(
-                        TextSpan(
-                            text:
-                                "Afficher d'erreur lors de la recherche d'une nouvelle version"),
-                        softWrap: true,
-                        maxLines: 8,
-                        overflow: TextOverflow.ellipsis,
-                      ))
-                ],
+              child: InkWell(
+                onTap: () async {
+                  showErrorFetching = await Tools.setShowDialogOnError(
+                      !showErrorFetching,
+                      sharedPreferences: prefs);
+                  setState(() {});
+                },
+                child: Row(
+                  children: [
+                    Checkbox(value: showErrorFetching, onChanged: (v) => {}),
+                    const SizedBox(
+                        width: popupSettingsWigth - 34,
+                        child: Text.rich(
+                          TextSpan(
+                              text:
+                                  "Afficher l'erreur lors de la recherche d'une nouvelle version"),
+                          softWrap: true,
+                          maxLines: 8,
+                          overflow: TextOverflow.ellipsis,
+                        ))
+                  ],
+                ),
               ),
             ),
           ],

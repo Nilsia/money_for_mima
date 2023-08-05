@@ -13,7 +13,9 @@ class VersionManager {
       required BuildContext context,
       required bool showNewVersionDialog,
       required bool showErrorFetching,
-      bool showCheckBox = true}) async {
+      bool showCheckBox = true,
+      bool showActualVersion = true,
+      bool showNetworkError = false}) async {
     InternetConnectivity().hasInternetConnection.then((hasInternet) {
       if (hasInternet) {
         var github = GitHub();
@@ -51,8 +53,8 @@ class VersionManager {
             if (localVersion != lastVersion) {
               await _showDialogNewVersion(showNewVersionDialog, context,
                   lastVersion, localVersion, showCheckBox);
-            } else {
-              await _showDialogAlreadyUpToDate(context);
+            } else if (showActualVersion) {
+              await _showDialogAlreadyUpToDate(context, localVersion);
             }
           } on Exception {
             await _showDialogOnErrorVersionGetting(
@@ -62,59 +64,72 @@ class VersionManager {
                 showCheckBox);
           }
         });
+      } else if (showNetworkError) {
+        showDialogNetworkError(context, "une recherche de mise à jour");
       }
     });
   }
 
   static Future<void> _showDialogOnErrorVersionGetting(bool showErrorFetching,
       BuildContext context, String text, bool showCheckBox) async {
+    if (!showErrorFetching) {
+      return;
+    }
+    bool doNotShowAgain = false;
     await showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-              title: const Text("Erreur récupération nouvelle version"),
-              content: SizedBox(
-                width: 400,
-                height: 150,
-                child: Column(
-                  children: [
-                    Text(text),
-                    const SizedBox(
-                      height: 30,
+        builder: (context) => StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
+                  title: const Text("Erreur récupération nouvelle version"),
+                  content: SizedBox(
+                    width: 400,
+                    height: 150,
+                    child: Column(
+                      children: [
+                        Text(text),
+                        const SizedBox(
+                          height: 30,
+                        ),
+                        if (showCheckBox)
+                          Row(
+                            children: [
+                              Checkbox(
+                                  value: doNotShowAgain,
+                                  onChanged: (bool? v) async {
+                                    if (v != null) {
+                                      doNotShowAgain =
+                                          !await Tools.setShowDialogOnError(!v,
+                                              sharedPreferences: null);
+                                      setState(() {});
+                                    }
+                                  }),
+                              const Text("Ne plus afficher le message "),
+                            ],
+                          )
+                      ],
                     ),
-                    if (showCheckBox)
-
-                      /// TODO manage value change on checkbox
-                      const Row(
-                        children: [
-                          Checkbox(value: false, onChanged: null),
-                          Text("Ne plus afficher le message "),
-                        ],
-                      )
+                  ),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text("OK"))
                   ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text("OK"))
-              ],
-            ));
+                )));
   }
 
-  static Future<void> _showDialogAlreadyUpToDate(BuildContext context) async {
+  static Future<void> _showDialogAlreadyUpToDate(
+      BuildContext context, String version) async {
     await showDialog(
         context: context,
         builder: (context) => AlertDialog(
               title: const Text("Déjà à jour"),
-              content: const SizedBox(
+              content: SizedBox(
                 width: 400,
                 height: 50,
                 child: Column(
                   children: [
-                    Text("VOtre version de Money For Mima est déjà à jour."),
-                    SizedBox(
-                      height: 30,
-                    ),
+                    Text(
+                        "Votre version de Money For Mima est déjà à jour. La version actuelle est : $version"),
                   ],
                 ),
               ),
@@ -201,5 +216,25 @@ class VersionManager {
                             child: const Text("Mettre à jour")) */
                   ],
                 )));
+  }
+
+  /// Show a popup that contains "Veuillez vous connecter à internet pour effectuer [completion]"
+  static void showDialogNetworkError(BuildContext context, String completion) {
+    showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+              title: const Text("Connexion à internet impossible"),
+              content: SizedBox(
+                width: 100,
+                height: 70,
+                child: Text(
+                    "Veuillez vous connecter à internet pour effectuer $completion"),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: Navigator.of(context).pop,
+                    child: const Text("OK"))
+              ],
+            ));
   }
 }

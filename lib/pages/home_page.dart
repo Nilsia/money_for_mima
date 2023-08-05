@@ -1,9 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:github/github.dart';
 import 'package:intl/intl.dart';
 import 'package:money_for_mima/models/account.dart';
 import 'package:money_for_mima/models/action_item.dart';
@@ -13,7 +10,6 @@ import 'package:money_for_mima/pages/due_page.dart';
 import 'package:money_for_mima/pages/transaction_page.dart';
 import 'package:money_for_mima/utils/tools.dart';
 import 'package:money_for_mima/utils/version_manager.dart';
-import 'package:observe_internet_connectivity/observe_internet_connectivity.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -58,7 +54,8 @@ class _HomePageState extends State<HomePage> {
       VersionManager.searchNewVersion(
           context: context,
           showNewVersionDialog: showNewVersionDialog,
-          showErrorFetching: showErrorFetching);
+          showErrorFetching: showErrorFetching,
+          showActualVersion: false);
     });
     reloadAccountListSecure();
     initTextFieldsDialog();

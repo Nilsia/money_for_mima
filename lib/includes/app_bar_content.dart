@@ -46,7 +46,6 @@ class _AppBarContent extends State<AppBarContent> {
           return;
         }
         if (super.widget.accountList.isEmpty) {
-          print("in here");
           final db = DatabaseManager();
           // get selected account and go to its requested page
           db.init().then((value) {

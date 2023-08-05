@@ -17,7 +17,6 @@ class ItemMenu {
   /// return true if has navigated else false
   bool navigate(PagesEnum currentPage, BuildContext context, int accountID) {
     final Widget widget;
-    print("navigating to ${pageTarget.name}");
     if (pageTarget.name == currentPage.name) {
       return false;
     }
