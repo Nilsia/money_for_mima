@@ -1,8 +1,9 @@
-use crate::{Error, VERSION};
+use crate::Error;
 use std::{
     fs, io,
     path::{Path, PathBuf},
 };
+/// return the extension executable for the target os, the point is included in it
 pub fn get_exec_extension() -> String {
     if cfg!(unix) {
         return "".to_string();
@@ -16,62 +17,6 @@ pub fn get_system() -> String {
     return String::from(if cfg!(windows) { "windows" } else { "linux" });
 }
 
-pub async fn get_remote_version() -> Result<String, Error> {
-    let resp = match reqwest::get(format!(
-        "https://leria-etud.univ-angers.fr/~ddasilva/money_for_mima/get_version.php?appVersion={}",
-        VERSION
-    ))
-    .await
-    {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(Box::from(
-                "Impossible de récupérer la nouvelle version (2)".to_string(),
-            ))
-        }
-    };
-    let text = match resp.text().await {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(Box::from(
-                "Impossible de récupérer la nouvelle version (3)".to_string(),
-            ))
-        }
-    };
-
-    let app_version_parsed = match json::parse(&text) {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(Box::from(
-                "Impossible de récupérer la nouvelle version (4)".to_string(),
-            ))
-        }
-    };
-
-    match &app_version_parsed["appVersion"] {
-        json::JsonValue::Short(s) => Ok(s.to_string()),
-        _ => Err(Box::from(
-            "Impossible de récupérer la nouvelle version (5)".to_string(),
-        )),
-    }
-}
-
-pub fn print_exit_program() {
-    print_sep();
-    println!("Fermeture du programme d'installation");
-}
-
-pub fn do_all_files_exist(files_to_move: &Vec<String>) -> bool {
-    let mut path: &Path;
-    for file in files_to_move {
-        path = Path::new(&file);
-        if !path.exists() {
-            return false;
-        }
-    }
-    true
-}
-
 pub fn wait_for_input() -> io::Result<()> {
     print_sep();
     println!("Tapez sur la touche ENTRER pour fermer le terminal");
@@ -81,7 +26,6 @@ pub fn wait_for_input() -> io::Result<()> {
     Ok(())
 }
 
-#[allow(dead_code)]
 pub fn copy_dir_content(
     from: &PathBuf,
     to: &PathBuf,

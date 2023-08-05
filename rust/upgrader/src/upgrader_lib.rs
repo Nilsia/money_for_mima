@@ -1,28 +1,42 @@
-use std::{
-    env, fs, io,
-    path::{Path, PathBuf},
-};
+use std::{env, fs, io::Write, path::PathBuf};
 
 use fs_extra::dir;
 
-use crate::shared_tools::{
-    copy_dir_content, get_exec_extension, get_remote_version, CommonFunctions, CustomError, Error,
-    VERSION,
+use shared_elements::{
+    common_functions::{copy_dir_content, get_exec_extension},
+    common_functions_trait::{CommonFunctions, DataHashMap},
+    custom_error::CustomError,
+    Error,
 };
 
 pub struct Upgrader {
-    pub current_dir: Option<PathBuf>,
-    pub system: String,
-    pub exec_extension: String,
+    current_dir: Option<PathBuf>,
+    system: String,
+    exec_extension: String,
+    log_filename: Option<PathBuf>,
+    remote_value: Option<DataHashMap>,
 }
 
 impl CommonFunctions for Upgrader {
     fn system(&self) -> &str {
         &self.system
     }
-    // fn files_destination(&self) ->  &Option<PathBuf> {
-    //     &None
-    // }
+
+    fn log_filename(&mut self) -> &mut Option<PathBuf> {
+        &mut self.log_filename
+    }
+
+    fn files_container(&self) -> &Option<PathBuf> {
+        &self.current_dir
+    }
+
+    fn remote_data(&mut self) -> &mut Option<DataHashMap> {
+        &mut self.remote_value
+    }
+
+    fn exec_extension(&self) -> &str {
+        &self.exec_extension
+    }
 }
 
 impl Upgrader {
@@ -32,9 +46,11 @@ impl Upgrader {
             current_dir: None,
             system,
             exec_extension: get_exec_extension(),
+            log_filename: None,
+            remote_value: None,
         }
     }
-    pub async fn run_upgrade(&mut self) -> Result<(), Error> {
+    pub async fn run_upgrade(&mut self, ask: bool) -> Result<(), Error> {
         self.current_dir = Some(env::current_dir()?);
 
         // check the parent directory
@@ -48,24 +64,49 @@ impl Upgrader {
             return Err(Box::new(CustomError::WrongParentFolder));
         }
 
+        let _ = self.get_remote_data().await?;
+
         // verify it is already up to date
-        let remote_version = get_remote_version().await?;
-        if remote_version == VERSION {
-            println!("Money For Mima est déjà à jour.");
+        let remote_version = self.get_remote_version().await?;
+        let local_version = self.get_local_version(None).await?;
+        if remote_version == local_version {
+            println!(
+                "Money For Mima est déjà à jour. La version actuelle est : {}",
+                remote_version
+            );
             return Ok(());
         }
+
+        if ask {
+            let mut answer = String::new();
+            print!("La version actuelle est : {}\nLa nouvelle version disponible est : {}\nSouhaitez-vous mettre à jour Money For Mima ? (O/n) : ", local_version, remote_version);
+            std::io::stdout().flush()?;
+            std::io::stdin()
+                .read_line(&mut answer)
+                .expect("Impossible de lire votre saisie au clavier.");
+            match answer.trim() {
+                "" | "oui" | "o" => (),
+                _ => {
+                    println!("Abandon de la mise à jour.");
+                    return Ok(());
+                }
+            }
+        }
+
+        self.update_version_in_file(Some(&remote_version)).await?;
 
         // download remote version for upgrade
         let mut downloaded_file = self.current_dir.as_ref().unwrap().join("money_for_mima");
         downloaded_file.set_extension(".zip");
-        self.download_file(&downloaded_file).await?;
+        let download_url = self.get_download_url().await?;
+        self.download_file(&downloaded_file, &download_url).await?;
 
         // specify the target of the extraction as the current directory
         let extraction_dir = self.current_dir.as_ref().unwrap().join("tmp");
 
         let upgrade_filename = PathBuf::from("upgrade".to_owned() + &self.exec_extension);
         // extract compressed archive caugth from the internet
-        extract_zip(
+        self.extract_zip(
             &downloaded_file,
             &extraction_dir,
             [upgrade_filename.to_owned()].to_vec(),
@@ -96,83 +137,4 @@ impl Upgrader {
 
         Ok(())
     }
-}
-
-#[cfg(unix)]
-fn extract_zip(
-    archive: &Path,
-    target_dir: &Path,
-    _exceptions: Vec<PathBuf>,
-) -> std::io::Result<()> {
-    let file_archive = fs::File::open(archive)?;
-    match zip_extract::extract(&file_archive, target_dir, true) {
-        Ok(_) => (),
-        Err(_) => {
-            return Err(std::io::Error::new(
-                io::ErrorKind::Other,
-                "Cannot extract zip file",
-            ))
-        }
-    };
-    Ok(())
-}
-
-#[cfg(windows)]
-fn extract_zip(archive: &Path, target_dir: &Path, exceptions: Vec<PathBuf>) -> std::io::Result<()> {
-    let file_archive = fs::File::open(archive)?;
-
-    let mut archive = match zip::ZipArchive::new(file_archive) {
-        Ok(v) => v,
-        Err(e) => {
-            return Err(e.into());
-        }
-    };
-
-    for i in 0..archive.len() {
-        let mut file = match archive.by_index(i) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("hi i am here");
-                return Err(e.into());
-            }
-        };
-        let enclosed_name = match file.enclosed_name() {
-            Some(v) => v,
-            None => continue,
-        };
-
-        let outpath = target_dir.join(enclosed_name.to_owned());
-        let filename_in_zip = match enclosed_name.to_str() {
-            Some(v) => v,
-            None => continue,
-        }
-        .to_string();
-
-        if exceptions.contains(&PathBuf::from(&filename_in_zip)) {
-            continue;
-        }
-        if filename_in_zip.ends_with('/') || filename_in_zip.ends_with("\\") {
-            fs::create_dir_all(&outpath)?;
-        } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    fs::create_dir_all(p)?;
-                }
-            }
-            let mut outfile = fs::File::create(&outpath)?;
-            io::copy(&mut file, &mut outfile)?;
-        }
-
-        // Get and Set permissions
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-
-            if let Some(mode) = file.unix_mode() {
-                fs::set_permissions(&outpath, fs::Permissions::from_mode(mode))?;
-            }
-        }
-    }
-
-    Ok(())
 }

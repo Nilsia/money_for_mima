@@ -6,26 +6,46 @@ use std::{
 
 use fs_extra::dir;
 
-use crate::shared_tools::{
-    get_exec_extension, print_sep, CommonFunctions, CustomError, Error, ReturnValue,
+use shared_elements::{
+    common_functions::{get_exec_extension, print_sep},
+    common_functions_trait::{CommonFunctions, DataHashMap},
+    custom_error::CustomError,
+    shortcut_trait::ShortcutTrait,
+    Error, ReturnValue,
 };
 
 pub struct Installer {
-    pub files_destination: Option<PathBuf>,
-    pub current_dir: Option<PathBuf>,
-    pub home_dir: Option<PathBuf>,
-    pub system: String,
-    pub exec_extension: String,
+    files_destination: Option<PathBuf>,
+    current_dir: Option<PathBuf>,
+    home_dir: Option<PathBuf>,
+    system: String,
+    exec_extension: String,
+    log_filename: Option<PathBuf>,
+    remote_data: Option<DataHashMap>,
 }
+
+impl ShortcutTrait for Installer {}
 
 impl CommonFunctions for Installer {
     fn system(&self) -> &str {
         &self.system
     }
 
-    // fn files_destination(&self) -> &Option<PathBuf> {
-    //     &self.files_destination
-    // }
+    fn log_filename(&mut self) -> &mut Option<PathBuf> {
+        &mut self.log_filename
+    }
+
+    fn files_container(&self) -> &Option<PathBuf> {
+        &self.files_destination
+    }
+
+    fn remote_data(&mut self) -> &mut Option<DataHashMap> {
+        &mut self.remote_data
+    }
+
+    fn exec_extension(&self) -> &str {
+        &self.exec_extension
+    }
 }
 
 impl Installer {
@@ -38,8 +58,19 @@ impl Installer {
             home_dir: dirs::home_dir(),
             system,
             exec_extension,
+            log_filename: None,
+            remote_data: None,
         }
     }
+
+    pub fn log(
+        &mut self,
+        message: &dyn ToString,
+        level: shared_elements::log_level::LogLevel,
+    ) -> Result<(), Error> {
+        self.log_trait(message, level, "INSTALLER")
+    }
+
     pub fn set_files_destination(&mut self) -> &Option<PathBuf> {
         self.files_destination = dirs::data_local_dir();
         if self.files_destination.is_none() {
@@ -81,29 +112,11 @@ impl Installer {
         zip_path.push("money_for_mima");
         zip_path.set_extension("zip");
 
-        self.download_file(&zip_path).await?;
+        let download_url = self.get_download_url().await?;
+        self.download_file(&zip_path, &download_url).await?;
         self.extract_zip(&zip_path, &self.files_destination.as_ref().unwrap(), vec![])?;
         fs::remove_file(&zip_path)?;
         drop(zip_path);
-
-        let desktop_dir = dirs::desktop_dir();
-        let mut applications_dir: Option<PathBuf> = None;
-        if cfg!(unix) {
-            applications_dir = Some(
-                self.home_dir
-                    .as_ref()
-                    .unwrap()
-                    .join(".local/share/applications/"),
-            );
-            if !applications_dir
-                .as_ref()
-                .unwrap()
-                .try_exists()
-                .unwrap_or(false)
-            {
-                applications_dir = None;
-            }
-        }
 
         let mut executable_target = self
             .files_destination
@@ -112,16 +125,10 @@ impl Installer {
             .join("money_for_mima");
         executable_target.set_extension(self.exec_extension.to_owned());
 
-        self.generate_links(
-            &executable_target,
-            vec![
-                (
-                    applications_dir,
-                    "Dossier de raccourci pour les applications",
-                ),
-                (desktop_dir, "Bureau"),
-            ],
-        )?;
+        // this function to create file if if does not exist
+        self.load_config_file()?;
+
+        self.generate_links(&executable_target, self.get_shorcut_dirs())?;
 
         print_sep();
         println!("Money For Mima a été installée. Vous pouvez maintenant l'utiliser.");
@@ -162,21 +169,6 @@ impl Installer {
         }
     }
 
-    /// Ask for the creation for a shorcut in the desktop
-    pub fn check_shortcut_desktop(&self) -> Result<ReturnValue, Error> {
-        print_sep();
-        print!("Voulez-vous effectuer un raccouci vers ce programme depuis votre Bureau, recommandé ? (O/n, tapez ENTRER pour oui) : ");
-        std::io::stdout().flush()?;
-        let mut answer: String = String::new();
-        io::stdin()
-            .read_line(&mut answer)
-            .expect("Impossible de récupérer votre réponse");
-        match answer.as_str().to_lowercase().trim() {
-            "" | "o" | "oui" => Ok(ReturnValue::NoError),
-            _ => Ok(ReturnValue::Skip),
-        }
-    }
-
     #[cfg(target_os = "linux")]
     /// Genrate shortcuts for app
     ///
@@ -191,19 +183,10 @@ impl Installer {
             return Ok(());
         }
 
+        let links_names = self.generate_links_name_from_dirs(Some(dest_dirs).as_ref());
+
         let mut return_value: Result<(), Error> = Ok(());
 
-        let links_names: Vec<(PathBuf, &str)> = dest_dirs
-            .iter()
-            .filter(|dest_dir| dest_dir.0.is_some())
-            .map(|dest_dir| (dest_dir.0.as_ref().unwrap(), dest_dir.1))
-            .map(|dest_dir| {
-                (
-                    self.generate_filename_for_link(&dest_dir.0, Some("desktop"), "money_for_mima"),
-                    dest_dir.1,
-                )
-            })
-            .collect();
         let src_dir = target_file.parent().unwrap();
         // check if target exists
         // verify_target(&mut target)?;
@@ -284,25 +267,6 @@ impl Installer {
             link.display()
         );
         Ok(())
-    }
-
-    /// Generate the link for Money For Mima, in the folder given, with the filename given and the
-    /// extension given
-    ///
-    /// * `dest_dir`: the folder where the shortcut will be
-    /// * `ext_link`: the shortcut extension
-    /// * `link_filename`: the shortcu file name
-    pub fn generate_filename_for_link(
-        &self,
-        dest_dir: &PathBuf,
-        ext_link: Option<&str>,
-        link_filename: &str,
-    ) -> PathBuf {
-        let mut link = dest_dir.join(link_filename);
-        if ext_link.is_some() {
-            link.set_extension(ext_link.unwrap());
-        }
-        link
     }
 
     #[cfg(target_os = "windows")]

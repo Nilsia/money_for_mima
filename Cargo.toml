@@ -2,5 +2,8 @@
 
 members = [
 	"rust/installer/",
-    "rust/upgrader/"
+    "rust/upgrader/",
+    "rust/uninstaller",
+    "rust/lib"
 ]
+

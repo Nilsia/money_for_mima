@@ -49,6 +49,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.2
   observe_internet_connectivity: ^1.0.2
+  github: ^9.17.0
   #path_provider: ^2.0.13
 
 dev_dependencies:

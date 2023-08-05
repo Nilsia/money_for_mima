@@ -1,29 +1,16 @@
-use installer::{
-    installer_lib::Installer,
-    shared_tools::{wait_for_input, Error},
-};
+use installer::installer_lib::Installer;
+use shared_elements::{common_functions::wait_for_input, log_level::LogLevel};
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let mut wait_after: bool = true;
-    match sub_main(&mut wait_after).await {
-        Ok(_) => (),
-        Err(_) => (),
-    }
-    if wait_after {
-        if let Err(_) = wait_for_input() {
-            eprintln!("Une erreur sans importance vient de survenir...");
-        }
-    }
-    Ok(())
-}
-
-async fn sub_main(_wait_after: &mut bool) -> Result<(), Error> {
     let mut installer = Installer::new();
     if let Err(e) = installer.run_installation().await {
         eprintln!("{}", e);
-        return Err(e);
+        let _ = installer.log(&e, LogLevel::WARN);
+        return Ok(());
     }
-
+    if let Err(_) = wait_for_input() {
+        eprintln!("Une erreur sans importance vient de survenir...");
+    }
     Ok(())
 }
