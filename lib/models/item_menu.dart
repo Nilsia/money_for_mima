@@ -10,14 +10,16 @@ class ItemMenu {
   final String text;
   final Icon icon;
   PagesEnum pageTarget;
-  bool isHovering = false;
+  bool isHovering = false, needAccount;
 
-  ItemMenu(this.text, this.icon, this.pageTarget);
+  ItemMenu(this.text, this.icon, this.pageTarget, {this.needAccount = true});
 
-  void navigate(PagesEnum currentPage, BuildContext context, int accountID) {
+  /// return true if has navigated else false
+  bool navigate(PagesEnum currentPage, BuildContext context, int accountID) {
     final Widget widget;
+    print("navigating to ${pageTarget.name}");
     if (pageTarget.name == currentPage.name) {
-      return;
+      return false;
     }
     switch (pageTarget) {
       case PagesEnum.home:
@@ -36,5 +38,6 @@ class ItemMenu {
 
     Navigator.push(
         context, PageRouteBuilder(pageBuilder: (_, __, ___) => widget));
+    return true;
   }
 }

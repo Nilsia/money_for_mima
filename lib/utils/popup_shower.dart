@@ -89,4 +89,25 @@ class PopupShower {
                   )));
         });
   }
+
+  static Future<bool?> buildSimpleAlertDialog(
+      BuildContext context, String title, String content,
+      {List<Widget>? actions}) {
+    actions ??= [
+      ElevatedButton(
+        onPressed: () => Navigator.of(context).pop(true),
+        style:
+            ButtonStyle(backgroundColor: MaterialStateProperty.all(Colors.red)),
+        child: const Text("OK"),
+      )
+    ];
+
+    return showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+              title: Text(title),
+              content: SizedBox(child: Text(content)),
+              actions: actions,
+            ));
+  }
 }

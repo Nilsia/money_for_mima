@@ -41,14 +41,21 @@ class _AppBarContent extends State<AppBarContent> {
         : null;
     return InkWell(
       onTap: () {
+        if (!itemMenu.needAccount) {
+          itemMenu.navigate(super.widget.currentPage, context, -1);
+          return;
+        }
         if (super.widget.accountList.isEmpty) {
+          print("in here");
           final db = DatabaseManager();
           // get selected account and go to its requested page
           db.init().then((value) {
             db.getIdOfSelectedAccount().then((id) {
               if (id == null) {
+                PagesEnum oldTarget = itemMenu.pageTarget;
                 itemMenu.pageTarget = PagesEnum.home;
                 itemMenu.navigate(super.widget.currentPage, context, -1);
+                itemMenu.pageTarget = oldTarget;
                 return;
               }
               itemMenu.navigate(super.widget.currentPage, context, id);

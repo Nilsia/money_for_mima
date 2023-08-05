@@ -10,6 +10,7 @@ import 'package:money_for_mima/models/outsider.dart';
 import 'package:money_for_mima/models/table_sort_item.dart';
 import 'package:money_for_mima/models/transactions.dart';
 import 'package:money_for_mima/pages/home_page.dart';
+import 'package:money_for_mima/utils/popup_shower.dart';
 import 'package:money_for_mima/utils/tools.dart';
 
 import 'package:intl/intl.dart';
@@ -1145,7 +1146,7 @@ class _TransactionPageState extends State<TransactionPage> {
       } else {
         account = value;
         if (duration.elapsed.inMilliseconds >= 500) {
-          Tools.buildSimpleAlertDialog(context, "Indications importantes",
+          PopupShower.buildSimpleAlertDialog(context, "Indications importantes",
               "Ce message intervient car la récupération des opérations est lente, il serait alors préférable de contacter la personne qui a développé le logiciel afin qu'elle remédie au problème");
         }
         setState(() {});

@@ -10,6 +10,7 @@ import 'package:money_for_mima/models/due.dart';
 import 'package:money_for_mima/models/item_menu.dart';
 import 'package:money_for_mima/models/outsider.dart';
 import 'package:money_for_mima/utils/custom_color_schema.dart';
+import 'package:money_for_mima/utils/popup_shower.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -60,7 +61,8 @@ class Tools {
       ItemMenu("Opérations", const Icon(Icons.book), PagesEnum.transaction),
       ItemMenu(
           "Échéances", const Icon(Icons.calendar_today_rounded), PagesEnum.due),
-      ItemMenu("Paramètres", const Icon(Icons.settings), PagesEnum.settings),
+      ItemMenu("Paramètres", const Icon(Icons.settings), PagesEnum.settings,
+          needAccount: false),
     ];
 
     return PreferredSize(
@@ -525,7 +527,7 @@ class Tools {
   static Future<bool?> confirmRemoveItem(
       BuildContext context, String title, String s,
       {bool overwrite = false}) async {
-    return buildSimpleAlertDialog(context, title,
+    return PopupShower.buildSimpleAlertDialog(context, title,
         "${!overwrite ? "Êtes-vous sûr(e) de vouloir supprimer $s" : s} Cette action est irréversible",
         actions: [
           ElevatedButton(
@@ -540,27 +542,6 @@ class Tools {
             child: const Text("VALIDER"),
           )
         ]);
-  }
-
-  static Future<bool?> buildSimpleAlertDialog(
-      BuildContext context, String title, String content,
-      {List<Widget>? actions}) {
-    actions ??= [
-      ElevatedButton(
-        onPressed: () => Navigator.of(context).pop(true),
-        style:
-            ButtonStyle(backgroundColor: MaterialStateProperty.all(Colors.red)),
-        child: const Text("OK"),
-      )
-    ];
-
-    return showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-              title: Text(title),
-              content: SizedBox(child: Text(content)),
-              actions: actions,
-            ));
   }
 
   static Widget buildIntChoice(List<int> intList, int? defaultIndex,

@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:github/github.dart';
 import 'package:intl/intl.dart';
 import 'package:money_for_mima/models/account.dart';
 import 'package:money_for_mima/models/action_item.dart';
@@ -10,9 +12,9 @@ import 'package:money_for_mima/models/item_menu.dart';
 import 'package:money_for_mima/pages/due_page.dart';
 import 'package:money_for_mima/pages/transaction_page.dart';
 import 'package:money_for_mima/utils/tools.dart';
+import 'package:money_for_mima/utils/version_manager.dart';
 import 'package:observe_internet_connectivity/observe_internet_connectivity.dart';
 
-import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -46,7 +48,6 @@ class _HomePageState extends State<HomePage> {
   bool hasInternet = false;
 
   SharedPreferences? prefs;
-  String packageVersion = "";
   PackageInfo? packageInfo;
   bool showNewVersionDialog = true;
   bool showErrorFetching = true;
@@ -54,7 +55,10 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     initSPPI().then((value) {
-      checkAppVersion();
+      VersionManager.searchNewVersion(
+          context: context,
+          showNewVersionDialog: showNewVersionDialog,
+          showErrorFetching: showErrorFetching);
     });
     reloadAccountListSecure();
     initTextFieldsDialog();
@@ -655,113 +659,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> checkAppVersion() async {
-    hasInternet = await InternetConnectivity().hasInternetConnection;
-    if (hasInternet) {
-      try {
-        final response = await http.get(Uri.parse(
-            "https://leria-etud.univ-angers.fr/~ddasilva/money_for_mima/get_version.php?appVersion=$packageVersion"));
-        // no error
-        if (response.statusCode == 200) {
-          const JsonDecoder decoder = JsonDecoder();
-          Map<String, dynamic> obj = decoder.convert(response.body);
-          if (!obj.containsKey("appVersion")) {
-            showDialogOnErrorVersionGetting();
-          } else {
-            if (showNewVersionDialog &&
-                obj["appVersion"].toString() != packageVersion) {
-              showDialogNewVersion(obj["appVersion"].toString());
-            }
-          }
-        } else {
-          if (showErrorFetching) {
-            showDialogOnErrorVersionGetting();
-          }
-        }
-      } on Exception catch (e) {
-        if (e.toString().contains("Failed host lookup:")) {
-          if (showErrorFetching) {
-            showDialogOnErrorVersionGetting();
-          }
-        }
-      }
-    }
-  }
-
-  void showDialogOnErrorVersionGetting() => showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-            title: const Text("Erreur requête"),
-            content: const SizedBox(
-              width: 400,
-              height: 150,
-              child: Column(
-                children: [
-                  Text(
-                      "Le serveur est inaccessible, veuillez vérifier votre connexion, si le problème persiste, il se peut que le serveur ait changé de nom de domaine, il est donc important de télécharger la nouvelle version"),
-                  SizedBox(
-                    height: 30,
-                  ),
-                  Row(
-                    children: [
-                      Checkbox(value: false, onChanged: null),
-                      Text("Ne plus afficher le message "),
-                    ],
-                  )
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text("OK"))
-            ],
-          ));
-
-  void showDialogNewVersion(String newVersion) => showDialog(
-      context: context,
-      builder: (context) {
-        bool doNotShowAgain = false;
-        return StatefulBuilder(
-            builder: (context, setState) => AlertDialog(
-                  title: const Text("Nouvelle version"),
-                  content: SizedBox(
-                      width: 300,
-                      height: 80,
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Text(
-                                "Vous êtes actuellement à la version $packageVersion, la nouvelle version $newVersion est disponible"),
-                            const SizedBox(
-                              height: 10,
-                            ),
-                            Row(
-                              children: [
-                                Checkbox(
-                                    value: doNotShowAgain,
-                                    onChanged: (bool? v) async {
-                                      if (v != null) {
-                                        doNotShowAgain =
-                                            !await Tools.setShowNewVersion(!v,
-                                                sharedPreferences: prefs);
-                                        setState(() {});
-                                      }
-                                    }),
-                                const Text("Ne plus afficher ce message")
-                              ],
-                            )
-                          ],
-                        ),
-                      )),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text("OK"))
-                  ],
-                ));
-      });
-
   Future<void> initSPPI() async {
     prefs = await Tools.getSP();
     packageInfo = await Tools.getPackageInfo();
@@ -769,6 +666,5 @@ class _HomePageState extends State<HomePage> {
         await Tools.getShowNewVersion(sharedPreferences: prefs);
     showErrorFetching =
         await Tools.getShowDialogOnError(sharedPreferences: prefs);
-    packageVersion = packageInfo!.version;
   }
 }
