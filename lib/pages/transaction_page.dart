@@ -455,13 +455,28 @@ class _TransactionPageState extends State<TransactionPage> {
               child: Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Tools.buildSearchBar(
-                    controller: outsiderRowController,
-                    sd: sd,
-                    width: outsiderWidth - 40 - 1,
-                    onSelected: (Object? o) {},
-                    setState: () =>
-                        setState(() {}), /* focusNode: outsiderFocus */
-                  )
+                      controller: outsiderRowController,
+                      sd: sd,
+                      width: outsiderWidth - 40 - 1,
+                      onSelected: (Object? o) {
+                        print("hi body");
+                      },
+                      setState: () => setState(() {}),
+                      focusNode: FocusNode(onKey: (node, event) {
+                        if (event.isKeyPressed(LogicalKeyboardKey.enter)) {
+                          if (!allWellCompleted(isRowAdder: true)) {
+                            amountAutofocus = true;
+                            setState(() {});
+                            return KeyEventResult.ignored;
+                          }
+                          amountAutofocus = false;
+                          addTransactions(isRowAdder: true);
+                          node.unfocus();
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      }) /* focusNode: outsiderFocus */
+                      )
                   /* TextField(
                   controller: outsiderController,
                   decoration: const InputDecoration(border: OutlineInputBorder()),
@@ -479,7 +494,7 @@ class _TransactionPageState extends State<TransactionPage> {
                   ),
             ),
           ),
-          // commet
+          // comment
           SizedBox(
             width: commentWidth,
             child: Padding(
@@ -767,14 +782,23 @@ class _TransactionPageState extends State<TransactionPage> {
 
     // cannot be null
     int amount = (double.tryParse(amountController.text.trim())! * 100).toInt();
-    await db.addTransactionsToAccount(
-        account.id,
-        Transactions(0, amount.abs() * (isDebitIconRow() ? -1 : 1),
-            selectedDate, Outsider(0, outsiderName), false, 0,
-            comment: comment));
-    initControllers();
-    await reloadAccountWithCheck();
-    initAmountState();
+    db
+        .addTransactionsToAccount(
+            account.id,
+            Transactions(0, amount.abs() * (isDebitIconRow() ? -1 : 1),
+                selectedDate, Outsider(0, outsiderName), false, 0,
+                comment: comment))
+        .then((value) async {
+      if (value <= -1) {
+        Tools.showNormalSnackBar(context,
+            "Une erreur est survenue, il se peut que la transaction ne soit pas ajoutée.");
+        return;
+      } else {
+        initControllers();
+        await reloadAccountWithCheck();
+        initAmountState();
+      }
+    });
   }
 
   Future<void> actionItemTapped(ActionItem item) async {
