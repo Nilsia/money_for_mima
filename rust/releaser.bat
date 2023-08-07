@@ -23,6 +23,7 @@ mkdir %target%
 copy ".\target\release\installer.exe" "%target%install.exe"
 copy ".\target\release\upgrader.exe" "%target%upgrade.exe"
 copy ".\target\release\uninstaller.exe" "%target%uninstall.exe"
+copy ".\config.json" "%target%config.json"
 
 PowerShell -command "& { flutter build windows --release }"
 

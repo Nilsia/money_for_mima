@@ -5,24 +5,37 @@ if [ "${PWD##*/}" != 'rust' ]; then
     exit 0
 fi
 
-oldVersion="$(grep ^version installer/Cargo.toml | cut -d ' ' -f3 | tr -d '"')"
+oldVersionWithoutV="$(grep ^version installer/Cargo.toml | cut -d ' ' -f3 | tr -d '"')"
 version="$(grep VERSION ./lib/src/lib.rs | cut -d ' ' -f6 | tr -d '"' | tr -d ';')"
-filesToEdit=("installer/Cargo.toml" "upgrader/Cargo.toml" "uninstaller/Cargo.toml" "lib/Cargo.toml" "../config.json" "../pubspec.yaml")
-for file in "${filesToEdit[@]}"; do
-    if [ ! -e "$file" ];then 
-        continue
-    fi
-    if [ "$file" = "../pubspec.yaml" ];then 
-        sed -i "s/$(cut -c 2- <<< "$oldVersion" )/$(cut -c 2- <<< "$version" )/g" "$file"
-    else
-        sed -i "s/$oldVersion/$version/g" "$file"
-    fi
-done
 
-exit
-printf 'oldVersion %s\n' "$oldVersion"
+if [ "$version" != "v$oldVersionWithoutV" ];then 
+    filesToEditWithoutV=("installer/Cargo.toml" "upgrader/Cargo.toml" "uninstaller/Cargo.toml" "lib/Cargo.toml" "../pubspec.yaml")
+    filesToEditWithV=("../config.json" )
+        
+    echo "Changing version from v$oldVersionWithoutV to $version"
+    for file in "${filesToEditWithoutV[@]}"; do
+        if [ ! -e "$file" ];then 
+            continue
+        fi
+        sed -i "s/$oldVersionWithoutV/$(cut -c 2- <<< "$version" )/g" "$file"
+        echo "$file edited"
+    done
+    
+    for file in "${filesToEditWithV[@]}"; do
+        if [ ! -e "$file" ];then 
+            continue
+        fi
+        sed -i "s/v$oldVersionWithoutV/$version/g" "$file"
+        echo "$file edited"
+    done
+    
+    echo
+    printf 'oldVersion : %s\n' "v$oldVersionWithoutV"
+
+fi 
 printf "Actual version : %s\n" "$version"
 
+echo
 echo 'Building release for Installer, Upgrader and Uninstaller'
 cargo +nightly build --release -p installer -p upgrader -p uninstaller
 echo 'Builds of Installer, Upgrader and Uninstaller finished'
@@ -49,6 +62,7 @@ mkdir "$target"
 cp  './target/release/installer' "$target/install"
 cp './target/release/upgrader' "$target/upgrade"
 cp './target/release/uninstaller' "$target/uninstall"
+cp './config.json' "$target"
 
 flutter build linux --release
 cp -r -t "$target" ./build/linux/x64/release/bundle/*
