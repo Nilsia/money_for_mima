@@ -116,12 +116,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                     showCheckBox: false,
                                     showNetworkError: true);
                               },
-                              child: const SizedBox(
+                              child: SizedBox(
                                 width: 250,
                                 child: Row(
                                   children: [
-                                    Icon(Icons.refresh),
-                                    Text("Rechercher des mises à jour")
+                                    const Icon(Icons.refresh),
+                                    const Text("Rechercher des mises à jour")
                                   ],
                                 ),
                               ),
