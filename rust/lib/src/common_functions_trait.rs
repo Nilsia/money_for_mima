@@ -68,6 +68,7 @@ pub trait CommonFunctions {
         target_dir: &Path,
         exceptions: Vec<PathBuf>,
     ) -> std::io::Result<()> {
+        use std::io;
         let file_archive = fs::File::open(archive)?;
 
         let mut archive = match zip::ZipArchive::new(file_archive) {

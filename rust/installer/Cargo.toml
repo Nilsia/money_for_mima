@@ -17,5 +17,5 @@ zip-extract = "0.1.2"
 
 shared_elements = { path = "../lib/" }
 
-[target.x86_64-pc-windows-gnu.dependencies]
+[target.'cfg(windows)'.dependencies]
 mslnk = "0.1.8"

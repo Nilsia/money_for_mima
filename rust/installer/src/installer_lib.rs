@@ -289,16 +289,28 @@ impl Installer {
             .collect();
 
         for link_name in &links_names {
-            self.check_shorcut_existence(link_name)?;
-            let sl = ShellLink::new(target_file)?;
-
-            if let Err(e) = sl.create_lnk(link) {
-                ee = e;
+            if let Err(e) = self.manage_link_name_tuple(link_name, target_file) {
+                ee = Err(e);
             }
         }
 
         ee
     }
+
+    #[cfg(target_os = "windows")]
+    fn manage_link_name_tuple(
+        &self,
+        data: &(PathBuf, &str),
+        target_file: &PathBuf,
+    ) -> Result<(), Error> {
+        use mslnk::ShellLink;
+        if !self.check_shorcut_substitution(data)? {
+            return Ok(());
+        }
+        ShellLink::new(target_file)?.create_lnk(&data.0)?;
+        Ok(())
+    }
+
     /// Check if the shortcut located at `data` already exists if true, ask for replacing
     ///
     /// * `data` the path of the shortcut
