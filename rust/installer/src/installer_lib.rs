@@ -1,17 +1,15 @@
 use std::{
     env, fs,
-    io::{self, ErrorKind, Write},
+    io::{ErrorKind, Write},
     path::PathBuf,
 };
-
-use fs_extra::dir;
 
 use shared_elements::{
     common_functions::{get_exec_extension, print_sep},
     common_functions_trait::{CommonFunctions, DataHashMap},
     custom_error::CustomError,
     shortcut_trait::ShortcutTrait,
-    Error, ReturnValue,
+    Error,
 };
 
 pub struct Installer {
@@ -126,12 +124,11 @@ impl Installer {
         fs::remove_file(&zip_path)?;
         drop(zip_path);
 
-        let mut executable_target = self
+        let executable_target = self
             .files_destination
             .to_owned()
             .unwrap()
-            .join("money_for_mima");
-        executable_target.set_extension(self.exec_extension.to_owned());
+            .join("money_for_mima".to_owned() + &self.exec_extension);
 
         // this function to create file if if does not exist
         self.load_config_file()?;
@@ -290,7 +287,7 @@ impl Installer {
             .map(|dest_dir| (dest_dir.0.as_ref().unwrap(), dest_dir.1))
             .map(|dest_dir| {
                 (
-                    self.generate_filename_for_link(&dest_dir.0, Some("desktop"), "money_for_mima"),
+                    self.generate_filename_for_link(&dest_dir.0, Some("lnk"), "Money For Mima"),
                     dest_dir.1,
                 )
             })
@@ -316,6 +313,10 @@ impl Installer {
             return Ok(());
         }
         ShellLink::new(target_file)?.create_lnk(&data.0)?;
+        println!(
+            "Un raccourci a été effectué dans le dossier {} avec succès",
+            data.0.display()
+        );
         Ok(())
     }
 
@@ -332,7 +333,7 @@ impl Installer {
                 if !v.is_dir() {
                     print_sep();
                     print!(
-                        "Dossier {} :\nLe raccourci {} existe déjà voulez-vous le remplacer ? (o / n) : ",
+                        "Dossier {} :\nLe raccourci {} existe déjà voulez-vous le remplacer ? (O / n) : ",
                         dirname,
                         file.to_owned().display()
                     );
@@ -341,7 +342,7 @@ impl Installer {
                         .read_line(&mut tmp)
                         .expect("Impossible de lire la saisie");
                     match tmp.to_string().trim() {
-                        "o" | "" => Ok(true),
+                        "o" | "" | "oui" => Ok(true),
                         _ => {
                             println!("Aucune action n'a été effectuée.");
                             return Ok(false);
@@ -359,227 +360,5 @@ impl Installer {
                 _ => Err(Box::new(CustomError::UnkownError)),
             },
         }
-    }
-}
-
-pub fn verify_target(target: &mut PathBuf) -> std::result::Result<(), Box<String>> {
-    match fs::metadata(target.to_owned()) {
-        Ok(v) => {
-            if !v.is_file() {
-                return Err(Box::from(
-                    "Veuillez exécuter le fichier dans le dossier money_for_mima (1)"
-                        .to_string(),
-                ));
-            }
-            Ok(())
-        }
-        Err(e) => match e.kind() {
-            ErrorKind::NotFound => {
-                return Err(Box::from(
-                    "Veuillez exécuter le fichier dans le dossier money_for_mimam le fichier n'a pas été trouvé (2)"
-                        .to_string(),
-                ))
-            }
-            ErrorKind::PermissionDenied => {
-                return Err(Box::from(
-                    "Vous ne possédez pas les permissions nécessaires pour accéder au fichier"
-                        .to_string(),
-                ))
-            }
-
-            _ => return Err(Box::from("Une erreur inconnue est survenue".to_string())),
-        },
-    }
-}
-pub fn choose_dir(
-    dest_dir: &mut Option<PathBuf>,
-    answer: &mut String,
-    has_to_move_files: &mut bool,
-) -> Result<ReturnValue, Box<String>> {
-    let mut msg_default: &str = "Mes Documents";
-    if dest_dir == &None {
-        *dest_dir = dirs::document_dir();
-    } else {
-        msg_default = dest_dir.as_ref().unwrap().to_str().unwrap();
-    }
-    println!("{}", msg_default);
-    let cur_dir = match env::current_dir() {
-        Ok(v) => v,
-        Err(_) => {
-            return Err(Box::from(
-                "Impossible de récupérer le dossier courant".to_string(),
-            ))
-        }
-    };
-    *answer = String::new();
-    *has_to_move_files = true;
-    print!(
-        "Veuillez sélectionner le dossier d'installation des fichiers : \n
-    1) Installer Money For Mima dans {} (par défaut)\n
-    2) Installer Money For Mima dans le dossier courant\n
-    3) Installer Money For Mima dans votre Bureau\n
-    4) Poursuivre le programme\n
-    5) Quitter le programme : ",
-        msg_default
-    );
-    io::stdout().flush().unwrap();
-    let max_v = 5;
-    let min_v = 1;
-    let mut associated_nb: u8 = 0;
-    while answer.is_empty() || associated_nb < min_v || associated_nb > max_v {
-        io::stdin()
-            .read_line(answer)
-            .expect("Impossible de lire la réponse");
-        associated_nb = match answer.parse() {
-            Ok(val) => val,
-            Err(_) => {
-                if answer == "\n" {
-                    *answer = "1".to_string();
-                    1
-                } else {
-                    println!("Veuillez founir une valeur entre {} et {}", min_v, max_v);
-                    answer.clear();
-                    0
-                }
-            }
-        }
-    }
-
-    match associated_nb {
-        1 => (),
-        2 => *dest_dir = Some(cur_dir.to_owned()),
-        3 => *dest_dir = dirs::desktop_dir(),
-        4 => {
-            *dest_dir = Some(cur_dir.to_owned());
-            println!("Copie des fichiers passé");
-            *has_to_move_files = false;
-        }
-        5 => return Ok(ReturnValue::Exit),
-        _ => {
-            return Err(Box::from(
-                "Une erreur inconnue est survenue (1)".to_string(),
-            ));
-        }
-    }
-
-    if dest_dir.is_none() {
-        let msg: &str;
-        match associated_nb {
-            1 => msg = "Impossible d'accéder au dossier Documents",
-            3 => msg = "Impossible d'accéder à votre Bureau",
-            _ => msg = "Une erreur inconnue est survenue (2)",
-        }
-        return Err(Box::from(String::from(msg)));
-    }
-    Ok(ReturnValue::NoError)
-}
-
-pub fn move_files_fn(
-    dest_dir: &mut Option<PathBuf>,
-    has_to_move_files: &mut bool,
-    files_to_move: Vec<String>,
-    folder_name: String,
-) -> Result<ReturnValue, Box<String>> {
-    let mut overwrite_files = false;
-
-    if *has_to_move_files {
-        // create folder money_for_mima
-        dest_dir.as_mut().unwrap().push(folder_name);
-        match std::fs::create_dir(dest_dir.as_ref().unwrap()) {
-            Ok(_) => (),
-            Err(e) => match e.kind() {
-                ErrorKind::AlreadyExists => {
-                    print_sep();
-                    println!(
-                        "Le dossier {} existe déjà",
-                        dest_dir.as_deref().unwrap().display()
-                    );
-                    let mut answer: String = String::new();
-                    print!(
-                        "Que voulez vous faire : \n
-    1) Quitter le programme (par défaut)\n
-    2) Écraser les fichiers présents (seulement ceux qui seraient en doublon) : "
-                    );
-                    match std::io::stdout().flush() {
-                        Ok(_) => (),
-                        Err(_) => return Err(Box::from("Une erreur est survenue".to_string())),
-                    }
-                    match std::io::stdin().read_line(&mut answer) {
-                        Ok(_) => (),
-                        Err(_) => {
-                            return Err(Box::from("Impossible de récupérer la saisie".to_string()));
-                        }
-                    }
-
-                    match answer.as_str().trim_end() {
-                        "2" => overwrite_files = true,
-                        "1" | "" | _ => return Ok(ReturnValue::Exit),
-                    }
-
-                    answer.clear();
-                    print_sep();
-                    print!("Vous êtes sur le point de réécrire tous les fichiers présents dans le dossier money_for_mima, Êtes-vous sûr(e) de votre action ? (oui/non) ");
-                    std::io::stdout().flush().unwrap();
-                    match std::io::stdin().read_line(&mut answer) {
-                        Ok(_) => (),
-                        Err(_) => return Err(Box::from("Une erreur est survenue".to_string())),
-                    }
-                    match answer.as_str().trim_end() {
-                        "oui" => (),
-                        _ => return Ok(ReturnValue::Exit),
-                    }
-                }
-                ErrorKind::PermissionDenied => {
-                    return Err(Box::from(
-                        "Vous ne possédez assez de permissions ".to_string(),
-                    ))
-                }
-
-                _ => {
-                    return Err(Box::from(
-                        "Impossible de créer le dossier money_for_mima, erreur inconnue"
-                            .to_string(),
-                    ))
-                }
-            },
-        }
-
-        // move all files
-        let mut options = dir::CopyOptions::new();
-        if overwrite_files {
-            println!("La réécriture des fichiers est activée");
-            options.overwrite = true;
-        }
-        match fs_extra::copy_items(&files_to_move, dest_dir.as_ref().unwrap(), &options) {
-            Ok(_) => {
-                println!("Le déplacement des fichiers s'est fait correctement");
-            }
-            Err(e) => {
-                eprintln!("{e}");
-                return Err(Box::from(
-                    "Le déplacement des fichiers a échoué".to_string(),
-                ));
-            }
-        }
-    }
-    Ok(ReturnValue::NoError)
-}
-
-pub fn check_shortcut(answer: &mut String) -> Result<ReturnValue, Box<String>> {
-    print_sep();
-    print!("Voulez-vous effectuer un raccouci vers ce programme depuis votre Bureau ? (o / n, vous pourrez toujours accéder à ce paramètre en récexécutant le programme) : ");
-    std::io::stdout().flush().unwrap();
-    answer.clear();
-    match io::stdin().read_line(answer) {
-        Ok(_) => (),
-        Err(_) => {
-            return Err(Box::from(
-                "Impossible de récupérer votre réponse".to_string(),
-            ))
-        }
-    }
-    match answer.as_str().trim_end() {
-        "o" | "oui" => Ok(ReturnValue::NoError),
-        _ => Ok(ReturnValue::Skip),
     }
 }

@@ -41,7 +41,7 @@ impl fmt::Display for CustomError {
             }
             CustomError::InvalidJsonValue => write!(f, "Le type de la valeur du JSON est invalide."),
             CustomError::CannotFetchRemoteData => write!(f, "Impossible de récupérer les données distantes, veuillez vous connecter à internet. Cependant l'erreur peut aussi provenir du programme, dans ce cas contactez les développeurs."),
-            CustomError::CannotGetRemotePackage => write!(f, "Impossible de récupérer les nouvelles version"),
+            CustomError::CannotGetRemotePackage => write!(f, "Impossible de récupérer les nouvelles versions"),
             CustomError::CannotGetLocalVersion => write!(f, "Impossible de récupérer la version locale, vérifier le fichier de configuration dans les fichiers."),
         }
     }
