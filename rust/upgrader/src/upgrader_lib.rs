@@ -42,7 +42,7 @@ impl CommonFunctions for Upgrader {
         let _ = self.remote_value.insert(data);
     }
 
-    fn insert_logfilename(&mut self,filename:PathBuf) {
+    fn insert_logfilename(&mut self, filename: PathBuf) {
         let _ = self.log_filename.insert(filename);
     }
 }
@@ -58,6 +58,15 @@ impl Upgrader {
             remote_value: None,
         }
     }
+
+    pub fn log(
+        &mut self,
+        message: &dyn ToString,
+        level: shared_elements::log_level::LogLevel,
+    ) -> Result<(), Error> {
+        self.log_trait(message, level, "UPGRADER")
+    }
+
     pub async fn run_upgrade(&mut self, ask: bool) -> Result<(), Error> {
         self.current_dir = Some(env::current_dir()?);
 

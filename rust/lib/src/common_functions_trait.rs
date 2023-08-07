@@ -136,6 +136,7 @@ pub trait CommonFunctions {
         let date = chrono::offset::Utc::now();
         let mut log_file = OpenOptions::new()
             .append(true)
+            .create(true)
             .open(self.log_filename().unwrap())?;
         log_file.write_all(
             &vec![
