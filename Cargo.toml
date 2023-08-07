@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+
+members = [
+	"rust/installer/",
+    "rust/upgrader/",
+    "rust/uninstaller",
+    "rust/lib"
+]
+

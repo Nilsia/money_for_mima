@@ -7,7 +7,6 @@ import 'package:money_for_mima/models/outsider.dart';
 import 'package:money_for_mima/models/transactions.dart';
 import 'package:money_for_mima/utils/tools.dart';
 import 'package:path/path.dart';
-//import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DatabaseManager {
@@ -86,17 +85,18 @@ class DatabaseManager {
     db.execute(
         '$createTB $_tbNameOutsiders($_id $idColDef $nn, $_used TEXT $nn, $_outsiderName TEXT $nn, $_comment TEXT $nn);');
     db.execute(
-        '$createTB $_tbNameAccounts($_id $idColDef $nn, $_used TEXT $nn, $_acDesignation TEXT $nn, $_acFullBalance REAL $nn, $_acFavorite TEXT $nn, $_acInitialBalance REAL $nn, $_acDueList TEXT $nn, $_acTrList TEXT $nn, $_acNthTr TEXT $nn, $_comment TEXT $nn, $_acSelected TEXT $nn, $_acDateCreation TEXT $nn, $_acFlaggedBalance REAL $nn);');
+        '$createTB $_tbNameAccounts($_id $idColDef $nn, $_used TEXT $nn, $_acDesignation TEXT $nn, $_acFullBalance INTEGER $nn, $_acFavorite TEXT $nn, $_acInitialBalance INTEGER $nn, $_acDueList TEXT $nn, $_acTrList TEXT $nn, $_acNthTr TEXT $nn, $_comment TEXT $nn, $_acSelected TEXT $nn, $_acDateCreation TEXT $nn, $_acFlaggedBalance INTEGER $nn);');
     db.execute(
-        "$createTB $_tbNameTransactions($_id $idColDef $nn, $_used TEXT $nn, $_trAmount READ $nn, $_trYear INTEGER $nn, $_trMonth INT $nn, $_trDOM INTEGER $nn, $_trOutsiderID INTEGER $nn, $_trFlagged TEXT $nn, $_trDueID REAL $nn, $_comment TEXT $nn, $_trAccountID INTEGER $nn, $_trBalanceAcMoment REAL $nn)");
+        "$createTB $_tbNameTransactions($_id $idColDef $nn, $_used TEXT $nn, $_trAmount READ $nn, $_trYear INTEGER $nn, $_trMonth INT $nn, $_trDOM INTEGER $nn, $_trOutsiderID INTEGER $nn, $_trFlagged TEXT $nn, $_trDueID INTEGER $nn, $_comment TEXT $nn, $_trAccountID INTEGER $nn, $_trBalanceAcMoment INTEGER $nn)");
     db.execute(
-        '$createTB $_tbNameDue($_id $idColDef $nn, $_used TEXT $nn, $_deAmount REAL $nn, $_deType TEXT $nn, $_deJsonClass TEXT $nn, $_comment TEXT $nn, $_deAccountID INTEGER $nn, $_deOutsiderID INTEGER $nn);');
+        '$createTB $_tbNameDue($_id $idColDef $nn, $_used TEXT $nn, $_deAmount INTEGER $nn, $_deType TEXT $nn, $_deJsonClass TEXT $nn, $_comment TEXT $nn, $_deAccountID INTEGER $nn, $_deOutsiderID INTEGER $nn);');
   }
 
   Future<bool> initDone() async {
     return _initDone;
   }
 
+  /// insert outsider and return it, if an error occured, null is returned
   Future<Outsider?> insertOutsider(Outsider o) async {
     if (o.name.isEmpty) {
       return null;
@@ -110,7 +110,7 @@ class DatabaseManager {
     return o;
   }
 
-  Future<Account> addAccount(String name, double initBalance, String comment,
+  Future<Account> addAccount(String name, int initBalance, String comment,
       DateTime creationDate) async {
     Account ac = Account(
         -1, name, initBalance, initBalance, initBalance, false, [], [], true,
@@ -183,7 +183,7 @@ class DatabaseManager {
     return dueList;
   }
 
-  // get outsider from Name
+  /// get outsider from [oName] returning Outsider if found else null
   Future<Outsider?> getOutsiderFromName(String oName) async {
     if (oName.isEmpty) {
       return null;
@@ -259,10 +259,13 @@ class DatabaseManager {
   }
 
   Future<List<Account>> getAllAccounts(
-      {BoolPointer? updated, bool haveToGetTransactions = false}) async {
+      {BoolPointer? updated,
+      bool haveToGetTransactions = false,
+      haveToGetDueList = false}) async {
     List<Account> acL = [];
     final Database db = await database;
 
+    // get all accounts
     List<Map<String, Object?>> allList = await db.query(_tbNameAccounts,
         columns: ["*"], where: "$_used = ?", whereArgs: ["true"]);
 
@@ -273,7 +276,7 @@ class DatabaseManager {
       }
       Account? ac = await getAccount(id,
           map: [map],
-          haveToGetDueList: true,
+          haveToGetDueList: haveToGetDueList,
           updated: updated,
           haveToGetTrList: haveToGetTransactions);
       if (ac != null) {
@@ -289,19 +292,36 @@ class DatabaseManager {
     String query =
         "SELECT COUNT($_id) as count FROM $_tbNameTransactions WHERE $_used = 'true' AND $_trAccountID = $acID AND $_trFlagged = 'false'";
     List<Map<String, Object?>> l = await db.rawQuery(query);
-    print(l);
+    if (l.isEmpty) {
+      return -1;
+    }
+    int? i = int.tryParse(l.first["count"].toString());
+    return i ?? -1;
+  }
 
-    /* List<Map<String, Object?>> l = await db.query(_tbNameTransactions,
-        where: " $_used = ? AND $_trAccountID = ?",
-        columns: ["COUNT(*)"],
-        whereArgs: ["true", acID]); */
+  Future<int> nbOfTransactions(int acID) async {
+    final Database db = await database;
+    String query =
+        "SELECT COUNT($_id) as count FROM $_tbNameTransactions WHERE $_used = 'true' AND $_trAccountID = $acID";
+    final List<Map<String, Object?>> res = await db.rawQuery(query);
+    if (res.isEmpty) {
+      return -1;
+    }
 
-    return int.parse(l.first["count"].toString());
+    int? i = int.tryParse(res.first["count"].toString());
+    return i ?? -1;
   }
 
   Future<List<Transactions>> getTransactionList(
-      List<String> trIDList, int nb, int acID) async {
+      List<String> trIDList, int? nb, int acID) async {
     final Database db = await database;
+    if (nb == null) {
+      final int nbTr = await nbOfTransactions(acID);
+      if (nbTr <= -1) {
+        return [];
+      }
+      nb = nbTr;
+    }
     int maxTr = nb;
     int inc = nb;
     nb = 0;
@@ -347,7 +367,7 @@ class DatabaseManager {
 
     final int nbTrUnFlagged = await nbUnFlagged(acID);
     while (countUnflagged < nbTrUnFlagged || count < maxTr) {
-      if (buildItems(nb, nb + inc) <= -1) {
+      if (buildItems(nb!, nb + inc) <= -1) {
         return trList;
       }
 
@@ -374,8 +394,6 @@ class DatabaseManager {
       idTuple = "";
       validIDList.clear();
     }
-
-    for (var t in trList) {}
     return trList;
 
     /* List<String> idList = strList.split(",");
@@ -454,7 +472,7 @@ class DatabaseManager {
         limit: 1,
         where: "$_used = ? AND $_id = ?",
         whereArgs: ["true", acID],
-        columns: [_acTrList, _acInitialBalance]);
+        columns: [_acTrList, _acInitialBalance, _acDateCreation]);
     if (resAc.isEmpty) {
       return -1;
     }
@@ -462,7 +480,7 @@ class DatabaseManager {
     // first Transactions so we have to add it with the initial balance
     if (resAc.first[_acTrList].toString().isEmpty) {
       tr.acBalance =
-          (double.tryParse(resAc.first[_acInitialBalance].toString()) ?? 0) +
+          (int.tryParse(resAc.first[_acInitialBalance].toString()) ?? 0) +
               tr.amount;
     }
 
@@ -490,9 +508,26 @@ class DatabaseManager {
           where: "$_id = ? AND $_used = ?", whereArgs: [id, "false"]);
     }
     tr.id = id;
-    final int resB = await addAccountCurrentBalance(acID, tr.amount);
-    if (resB == -1) {
+
+    DateTime? acDateCreation =
+        DateTime.tryParse(resAc.first[_acDateCreation].toString());
+    if (acDateCreation == null) {
       return -1;
+    }
+
+    if (tr.date!.isBefore(acDateCreation) &&
+        !Tools.areSameDay(tr.date!, acDateCreation)) {
+      if (await updateFlaggedFullBalanceAccount(acID, -tr.amount,
+              flagged: true, full: false) <=
+          -1) {
+        return -1;
+      }
+    } else {
+      final int resB = await updateFlaggedFullBalanceAccount(acID, tr.amount,
+          full: true, flagged: false);
+      if (resB == -1) {
+        return -1;
+      }
     }
 
     // add Transactions to Account
@@ -517,8 +552,8 @@ class DatabaseManager {
                 Tools.areSameDay(dateTr.toUtc(), tr_.date!.toUtc()))) {
           idList.insert(i, tr.id.toString());
           if (i == idList.length - 1) {
-            double bal =
-                double.tryParse(resAc.first[_acInitialBalance].toString()) ?? 0;
+            int bal =
+                int.tryParse(resAc.first[_acInitialBalance].toString()) ?? 0;
             tr.acBalance = bal + tr.amount;
           } else {
             Map<String, Object?>? map = await getTransactionsMap(
@@ -528,8 +563,7 @@ class DatabaseManager {
               return -1;
             }
             tr.acBalance =
-                double.tryParse(map[_trBalanceAcMoment].toString())! +
-                    tr.amount;
+                int.tryParse(map[_trBalanceAcMoment].toString())! + tr.amount;
             if (await editTransactionAccountCurrentBalance(tr.id, tr.acBalance,
                     set: true, add: false) ==
                 -1) {
@@ -598,7 +632,7 @@ class DatabaseManager {
     return idList;
   }
 
-  Future<int> editTransactionAccountCurrentBalance(int trID, double balance,
+  Future<int> editTransactionAccountCurrentBalance(int trID, int balance,
       {required bool set, required bool add}) async {
     final Database db = await database;
 
@@ -608,12 +642,11 @@ class DatabaseManager {
       return -1;
     }
 
-    double newValue = 0;
+    int newValue = 0;
     if (set && !add) {
       newValue = balance;
     } else if (!set && add) {
-      final double? oldValue =
-          double.tryParse(map[_trBalanceAcMoment].toString());
+      final int? oldValue = int.tryParse(map[_trBalanceAcMoment].toString());
       if (oldValue == null) {
         return -1;
       }
@@ -637,8 +670,13 @@ class DatabaseManager {
     }
 
     Map<String, Object?>? mapAc = await getAccountMap(acID,
-        cols: [_acTrList, _acFlaggedBalance, _acFullBalance]);
+        cols: [_acTrList, _acFlaggedBalance, _acFullBalance, _acDateCreation]);
     if (mapAc == null) {
+      return -1;
+    }
+    DateTime? acDateCreation =
+        DateTime.tryParse(mapAc[_acDateCreation].toString());
+    if (acDateCreation == null) {
       return -1;
     }
 
@@ -662,64 +700,91 @@ class DatabaseManager {
       return -1;
     }
 
-    Map<String, Object?> map = {};
-    double? fullBalance = double.tryParse(mapAc[_acFullBalance].toString());
-    if (fullBalance == null) {
+    int? flaggedBalance = int.tryParse(mapAc[_acFlaggedBalance].toString()),
+        fullBalance = int.tryParse(mapAc[_acFullBalance].toString());
+    if (fullBalance == null || flaggedBalance == null) {
       return -1;
     }
-    map[_acFullBalance] = fullBalance - tr.amount;
 
-    if (tr.flagged) {
-      double? flaggedBalance =
-          double.tryParse(mapAc[_acFlaggedBalance].toString());
-      if (flaggedBalance == null) {
-        return -1;
+    Map<String, Object?> map = {};
+
+    if (acDateCreation.isAfter(tr.date!) &&
+        !Tools.areSameDay(acDateCreation, tr.date!)) {
+      if (!tr.flagged) {
+        map[_acFlaggedBalance] = flaggedBalance + tr.amount;
       }
-      map[_acFlaggedBalance] = flaggedBalance - tr.amount;
+    } else {
+      map[_acFullBalance] = fullBalance - tr.amount;
+
+      if (tr.flagged) {
+        map[_acFlaggedBalance] = flaggedBalance - tr.amount;
+      }
     }
 
     final resAC = await editTransactionsList(idList, acID, mapValues: map);
-    if (resAC == -1) {
-      return -1;
-    }
-
-    return 0;
+    return resAC <= -1 ? -1 : 0;
   }
 
   Future<int> editAccountBalanceFromTransactions(
-      int acID, bool flagged, double oldAmount, double newAmount,
-      {bool checked = false}) async {
-    final Database db = await database;
+      {required int acID,
+      required bool flagged,
+      required int oldAmount,
+      required int newAmount,
+      required DateTime accountCreationDate,
+      required DateTime oldTransactionDate,
+      required DateTime newTransactionDate}) async {
     Map<String, Object?>? mapAc =
         await getAccountMap(acID, cols: [_acFullBalance, _acFlaggedBalance]);
     if (mapAc == null) {
       return -1;
     }
 
-    Map<String, Object?> map = {};
-    double? fullBalance = double.tryParse(mapAc[_acFullBalance].toString());
-    if (fullBalance == null) {
-      return -1;
-    }
-    map[_acFullBalance] = fullBalance + (newAmount - oldAmount);
-
-    if (flagged) {
-      double? flaggedBalance =
-          double.tryParse(mapAc[_acFlaggedBalance].toString());
-      if (flaggedBalance == null) {
-        return -1;
-      }
-      map[_acFlaggedBalance] = flaggedBalance + (newAmount - oldAmount);
-    }
-
-    if (map.isNotEmpty) {
-      if (await db.update(_tbNameAccounts, map,
-              where: "$_id = ? AND $_used = ? ", whereArgs: [acID, "true"]) ==
-          0) {
-        return -1;
+    // oldDate ||| creationDate =|= newDate => oldDate is before creation and newDate is after or same date then creation
+    if (accountCreationDate.isAfter(oldTransactionDate) &&
+        !Tools.areSameDay(accountCreationDate, oldTransactionDate) &&
+        (accountCreationDate.isBefore(newTransactionDate) ||
+            Tools.areSameDay(accountCreationDate, newTransactionDate))) {
+      // so add amount to full balance and to flagged balance, if same values
+      if (oldAmount == newAmount) {
+        return await updateFlaggedFullBalanceAccount(acID, oldAmount,
+            flagged: true, full: true);
+      } else {
+        await updateFlaggedFullBalanceAccount(
+            acID, oldAmount + (flagged ? (newAmount - oldAmount) : 0),
+            flagged: true, full: false);
+        return await updateFlaggedFullBalanceAccount(acID, newAmount,
+            flagged: false, full: true);
       }
     }
-
+    // newDate ||| creationDate =|= oldDate
+    else if ((accountCreationDate.isBefore(oldTransactionDate) ||
+            Tools.areSameDay(accountCreationDate, oldTransactionDate)) &&
+        accountCreationDate.isAfter(newTransactionDate) &&
+        !Tools.areSameDay(newTransactionDate, accountCreationDate)) {
+      if (oldAmount == newAmount) {
+        return await updateFlaggedFullBalanceAccount(acID, -oldAmount,
+            full: true, flagged: true);
+      } else {
+        await updateFlaggedFullBalanceAccount(
+            acID, flagged ? -oldAmount : -newAmount,
+            flagged: true, full: false);
+        return await updateFlaggedFullBalanceAccount(acID, -oldAmount,
+            flagged: false, full: true);
+      }
+    } // createDate not between them
+    else {
+      int diff = newAmount - oldAmount;
+      if (oldTransactionDate.isAfter(accountCreationDate) ||
+          Tools.areSameDay(oldTransactionDate, accountCreationDate)) {
+        await updateFlaggedFullBalanceAccount(acID, diff,
+            flagged: flagged, full: true);
+      } else {
+        if (!flagged) {
+          await updateFlaggedFullBalanceAccount(acID, -diff,
+              flagged: true, full: false);
+        }
+      }
+    }
     return 0;
   }
 
@@ -766,30 +831,7 @@ class DatabaseManager {
     return res.isEmpty ? null : res.first;
   }
 
-  Future<int> addAccountCurrentBalance(int acID, double balance) async {
-    final Database db = await database;
-
-    final Map<String, Object?>? map =
-        await getAccountMap(acID, cols: [_acFullBalance]);
-    if (map == null) {
-      return -1;
-    }
-
-    final double newBalance =
-        double.parse(map[_acFullBalance].toString()) + balance;
-
-    final int res = await db.update(
-        _tbNameAccounts, {_acFullBalance: newBalance},
-        where: "$_id = ? AND $_used = ?", whereArgs: [acID, "true"]);
-
-    if (res == 0) {
-      return -1;
-    }
-
-    return 0;
-  }
-
-  Future<int> setAccountInitialBalance(int acID, double balance) async {
+  Future<int> setAccountInitialBalance(int acID, int balance) async {
     final Database db = await database;
 
     final Map<String, Object?>? map = await getAccountMap(acID,
@@ -798,18 +840,18 @@ class DatabaseManager {
       return -1;
     }
 
-    double? initB = double.tryParse(map[_acInitialBalance].toString());
-    double? fullB = double.tryParse(map[_acFullBalance].toString());
-    double? flaggedB = double.tryParse(map[_acFlaggedBalance].toString());
+    int? initB = int.tryParse(map[_acInitialBalance].toString());
+    int? fullB = int.tryParse(map[_acFullBalance].toString());
+    int? flaggedB = int.tryParse(map[_acFlaggedBalance].toString());
 
     if (initB == null || fullB == null || flaggedB == null) {
       return -1;
     }
 
-    double diff = balance - initB;
+    int diff = balance - initB;
 
-    double newFullB = fullB + diff;
-    double newFlaggedBalance = flaggedB + diff;
+    int newFullB = fullB + diff;
+    int newFlaggedBalance = flaggedB + diff;
 
     final int res = await db.update(
         _tbNameAccounts,
@@ -829,7 +871,7 @@ class DatabaseManager {
   }
 
   Future<Account?> getAccount(int acID,
-      {bool haveToGetTrList = true,
+      {bool haveToGetTrList = false,
       bool haveToGetDueList = false,
       List<Map<String, Object?>>? map,
       BoolPointer? updated,
@@ -857,7 +899,7 @@ class DatabaseManager {
         : []);
     //int.parse(map.first[_acNthTr].toString())
 
-    bool ret = ac.setDueList(
+    bool ret = await ac.setDueList(
         haveToGetDueList
             ? await getDueList(map.first[_acDueList].toString().split(","))
             : [],
@@ -885,8 +927,7 @@ class DatabaseManager {
       return -1;
     }
 
-    final double? flaggedBalance =
-        double.tryParse(map[_acFlaggedBalance].toString());
+    final int? flaggedBalance = int.tryParse(map[_acFlaggedBalance].toString());
     if (flaggedBalance == null) {
       return -1;
     }
@@ -950,40 +991,52 @@ class DatabaseManager {
   }
 
   Future<int> editTransaction(
-      int trID,
-      double? amount,
-      DateTime? date,
-      Outsider? outsider,
-      int acID,
-      bool flagged,
-      double oldAmount,
-      String? comment) async {
+      {required int trID,
+      required int newAmount,
+      required DateTime newDate,
+      required Outsider? outsider,
+      required int acID,
+      required bool flagged,
+      required int oldAmount,
+      required DateTime oldDate,
+      required String? comment}) async {
     final Database db = await database;
     Map<String, Object?>? map = await getTransactionsMap(trID, cols: [_id]);
     if (map == null) {
       return -1;
     }
 
-    Map<String, Object?>? mapA = await getAccountMap(acID, cols: [_id]);
+    Map<String, Object?>? mapA =
+        await getAccountMap(acID, cols: [_id, _acDateCreation]);
     if (mapA == null) {
+      return -1;
+    }
+    DateTime? creationDate =
+        DateTime.tryParse(mapA[_acDateCreation].toString());
+    if (creationDate == null) {
       return -1;
     }
 
     Map<String, String> m = {};
-    if (amount != null) {
+    bool sameMoment = newDate.isAtSameMomentAs(oldDate);
+    if (newAmount != oldAmount || !sameMoment) {
+      if (!sameMoment) {
+        m[_trDOM] = newDate.day.toString();
+        m[_trMonth] = newDate.month.toString();
+        m[_trYear] = newDate.year.toString();
+      }
       if (await editAccountBalanceFromTransactions(
-              acID, flagged, oldAmount, amount,
-              checked: true) ==
+              acID: acID,
+              flagged: flagged,
+              oldAmount: oldAmount,
+              newAmount: newAmount,
+              accountCreationDate: creationDate,
+              oldTransactionDate: oldDate,
+              newTransactionDate: newDate) ==
           -1) {
         return -1;
       }
-      m[_trAmount] = amount.toString();
-    }
-
-    if (date != null) {
-      m[_trDOM] = date.day.toString();
-      m[_trMonth] = date.month.toString();
-      m[_trYear] = date.year.toString();
+      m[_trAmount] = newAmount.toString();
     }
 
     if (outsider != null) {
@@ -1207,15 +1260,15 @@ class DatabaseManager {
     return oList;
   }
 
-  Future<int> updateOutsider(Outsider oldO, Outsider newO) async {
-    final Database db = await database;
-
-    final res = await db.update(_tbNameOutsiders, newO.toMapForDB(),
-        where: "$_used = ? AND $_outsiderName = ?",
-        whereArgs: ["true", oldO.name]);
-
-    return res == 0 ? -1 : 0;
-  }
+  /// map the new Outsider [newO] and update the values that the id of the old Outsider [oldO] is linked to
+  /// return -1 in error and 0 on success
+  Future<int> updateOutsider(Outsider oldO, Outsider newO) async =>
+      (await (await database).update(_tbNameOutsiders, newO.toMapForDB(),
+                  where: "$_used = ? AND $_outsiderName = ?",
+                  whereArgs: ["true", oldO.name])) ==
+              0
+          ? -1
+          : 0;
 
   Future<int> setAccountDesignation(int id, String newAccountName) async {
     final Database db = await database;
@@ -1230,17 +1283,101 @@ class DatabaseManager {
     return r == 0 ? -1 : 0;
   }
 
-  Future<int> setAccountCreationDate(int id, DateTime accountDate) async {
+  Future<int> setAccountCreationDate(int id, DateTime newDate) async {
     final Database db = await database;
-    final res = await getAccountMap(id, cols: [_acDateCreation]);
+    final res = await getAccountMap(id, cols: [_acDateCreation, _acTrList]);
     if (res == null) {
       return -1;
     }
 
+    DateTime? oldDate = DateTime.tryParse(res[_acDateCreation].toString());
+    if (oldDate == null) {
+      return -1;
+    }
+
     final r = await db.update(
-        _tbNameAccounts, {_acDateCreation: accountDate.toString()},
+        _tbNameAccounts, {_acDateCreation: newDate.toString()},
         where: "$_used = ? AND $_id = ?", whereArgs: ["true", id]);
-    return r == 0 ? -1 : 0;
+    if (r == 0) {
+      return -1;
+    }
+
+    // get all transactions
+    List<Transactions> trList = await getTransactionList(
+        res[_acTrList].toString().split(','), null, id);
+
+    if (Tools.areSameDay(newDate, oldDate)) {
+      return 0;
+    }
+
+    if (newDate.isBefore(oldDate)) {
+      for (Transactions tr in trList) {
+        DateTime d = tr.date!;
+        // between the two new dates, that will impact the balance of the account
+        if ((d.isAfter(newDate) &&
+                d.isBefore(oldDate) &&
+                !Tools.areSameDay(d, oldDate)) ||
+            Tools.areSameDay(d, newDate)) {
+          final resAc = await getAccountMap(id,
+              cols: [_acFullBalance, _acFlaggedBalance]);
+          if (resAc == null) {
+            return -1;
+          }
+          int? fullBalance = int.tryParse(resAc[_acFullBalance].toString()),
+              flaggedBalance =
+                  int.tryParse(resAc[_acFlaggedBalance].toString());
+          if (fullBalance == null || flaggedBalance == null) {
+            return -1;
+          }
+
+          final res2 = await db.update(
+              _tbNameAccounts,
+              {
+                _acFullBalance: fullBalance + tr.amount,
+                _acFlaggedBalance: flaggedBalance + tr.amount
+              },
+              where: "$_used = ? AND $_id = ?",
+              whereArgs: ["true", id]);
+          if (res2 == 0) {
+            return -1;
+          }
+        }
+      }
+    } else {
+      for (Transactions tr in trList) {
+        DateTime d = tr.date!;
+        // between the two new dates, that will impact the balance of the account
+        if ((d.isAfter(oldDate) &&
+                d.isBefore(newDate) &&
+                !Tools.areSameDay(d, newDate)) ||
+            Tools.areSameDay(d, oldDate)) {
+          final resAc = await getAccountMap(id,
+              cols: [_acFullBalance, _acFlaggedBalance]);
+          if (resAc == null) {
+            return -1;
+          }
+          int? fullBalance = int.tryParse(resAc[_acFullBalance].toString()),
+              flaggedBalance =
+                  int.tryParse(resAc[_acFlaggedBalance].toString());
+          if (fullBalance == null || flaggedBalance == null) {
+            return -1;
+          }
+
+          final res2 = await db.update(
+              _tbNameAccounts,
+              {
+                _acFullBalance: fullBalance - tr.amount,
+                _acFlaggedBalance: flaggedBalance - tr.amount
+              },
+              where: "$_used = ? AND $_id = ?",
+              whereArgs: ["true", id]);
+          if (res2 == 0) {
+            return -1;
+          }
+        }
+      }
+    }
+    return 0;
   }
 
   Future<int> removeAccount(int acID) async {
@@ -1262,5 +1399,92 @@ class DatabaseManager {
         where: "$_used = ? AND $_id = ?", whereArgs: ["true", acID]);
 
     return res3 == 0 ? -1 : 0;
+  }
+
+// return -1 en cas de failure, -2 en cas d'existence du tiers, et 0 en cas de succès
+  Future<int> removeOutsider(int outsiderID) async {
+    final Database db = await database;
+
+    final res = await db.query(_tbNameTransactions,
+        limit: 1,
+        columns: [_id],
+        where: "$_used = ? AND $_trOutsiderID = ?",
+        whereArgs: ["true", outsiderID]);
+
+    if (res.isNotEmpty) {
+      return -2;
+    }
+
+    return (await db.update(_tbNameOutsiders, {_used: 'false'},
+                where: "$_used = ? AND $_id = ?",
+                whereArgs: ['true', outsiderID])) >=
+            1
+        ? 0
+        : -1;
+  }
+
+  Future<List<int>> getAllOutsiderIdUsed() async {
+    final Database db = await database;
+    List<int?> res = (await db.query(_tbNameTransactions,
+            distinct: true,
+            columns: [_trOutsiderID],
+            where: "$_used = ?",
+            whereArgs: ["true"]))
+        .map<int?>((e) => int.tryParse(e[_trOutsiderID].toString()))
+        .toList();
+    res.addAll((await db.query(_tbNameDue,
+            distinct: true,
+            columns: [_deOutsiderID],
+            where: "$_used = ?",
+            whereArgs: ["true"]))
+        .map<int?>((e) => int.tryParse(e[_deOutsiderID].toString())));
+    return Tools.nullFilter(res.toSet().toList());
+  }
+
+  Future<int> updateFlaggedFullBalanceAccount(int acID, int amount,
+      {bool set = false, required bool flagged, required bool full}) async {
+    final Database db = await database;
+    final res =
+        await getAccountMap(acID, cols: [_acFullBalance, _acFlaggedBalance]);
+    if (res == null) {
+      return -1;
+    }
+    Map<String, Object> map = {};
+
+    if (full) {
+      int? fullBalance = int.tryParse(res[_acFullBalance].toString());
+      if (fullBalance == null) {
+        return -2;
+      }
+      map[_acFullBalance] = fullBalance + amount;
+    }
+
+    if (flagged) {
+      int? flaggedBalance = int.tryParse(res[_acFlaggedBalance].toString());
+      if (flaggedBalance == null) {
+        return -2;
+      }
+      map[_acFlaggedBalance] = flaggedBalance + amount;
+    }
+
+    return (await db.update(_tbNameAccounts, map,
+                where: "$_id = ? AND $_used = ?", whereArgs: [acID, "true"])) ==
+            0
+        ? -3
+        : 0;
+  }
+
+  Future<int?> getIdOfSelectedAccount() async {
+    final Database db = await database;
+    List<Map<String, Object?>> res = await db.query(_tbNameAccounts,
+        where: "$_used = ? AND $_acSelected = ?",
+        whereArgs: ["true", "true"],
+        columns: [_id],
+        limit: 1);
+    if (res.isEmpty) {
+      return null;
+    }
+
+    return int.tryParse(res.first[_id].toString());
   }
 }

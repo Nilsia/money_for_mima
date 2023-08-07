@@ -9,21 +9,31 @@ import 'package:money_for_mima/models/action_item.dart';
 import 'package:money_for_mima/models/due.dart';
 import 'package:money_for_mima/models/item_menu.dart';
 import 'package:money_for_mima/models/outsider.dart';
+import 'package:money_for_mima/utils/custom_color_schema.dart';
+import 'package:money_for_mima/utils/popup_shower.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BoolPointer {
   bool i = false;
 }
 
-class SDenum {
-  int? dft;
-  String label;
-  Map<String?, Object?>? m;
+enum PopupAction { edit, delete, add }
 
-  SDenum(this.label, {this.dft, this.m}) {
-    m ??= {};
+extension NumberExtension on num {
+  bool get isInteger => this is int;
+}
+
+class SDenum {
+  int? defaultt;
+  String label;
+  Map<String?, Object?>? map;
+
+  SDenum(this.label, {this.defaultt, this.map}) {
+    map ??= {};
   }
 
-  SDenum.none({this.label = "", this.dft, this.m});
+  SDenum.none({this.label = "", this.defaultt, this.map});
 }
 
 enum DialogError {
@@ -33,12 +43,16 @@ enum DialogError {
   invalidOutsider,
   unknown,
   noError,
+  tooMuchPrecision,
 }
 
 class Tools {
   static const menuBackgroundColor = Colors.blueAccent;
 
   static const double menuWidth = 200;
+  static const double appBarHeight = 60.0;
+
+  static List<T> nullFilter<T>(List<T?> list) => [...list.whereType<T>()];
 
   static PreferredSize generateNavBar(
       PagesEnum currentPage, List<Account> accountList) {
@@ -47,9 +61,9 @@ class Tools {
       ItemMenu("Opérations", const Icon(Icons.book), PagesEnum.transaction),
       ItemMenu(
           "Échéances", const Icon(Icons.calendar_today_rounded), PagesEnum.due),
+      ItemMenu("Paramètres", const Icon(Icons.settings), PagesEnum.settings,
+          needAccount: false),
     ];
-
-    const double appBarHeight = 60.0;
 
     return PreferredSize(
       preferredSize: const Size.fromHeight(appBarHeight),
@@ -64,6 +78,11 @@ class Tools {
       ),
     );
   }
+
+  static getBackgroundList(BuildContext context) => [
+        Theme.of(context).colorScheme.backgroundListDistinct1,
+        Theme.of(context).colorScheme.backgroundListDistinct2
+      ];
 
   static Widget generateTableCell(String text, double? height,
       {Alignment alignment = Alignment.centerLeft,
@@ -226,7 +245,8 @@ class Tools {
       required Account account,
       required String accountSelectedName,
       required void Function() update,
-      required void Function(int) onSelection}) {
+      required void Function(int) onSelection,
+      bool isExpanded = true}) {
     if (accountList.isEmpty) {
       return const SizedBox(width: 0, height: 0);
     }
@@ -242,7 +262,7 @@ class Tools {
         child: DropdownButton<String>(
           value: accountSelectedName,
           elevation: 16,
-          isExpanded: true,
+          isExpanded: isExpanded,
           onChanged: accountList.length == 1
               ? null
               : (String? value) {
@@ -451,11 +471,12 @@ class Tools {
       required double width,
       required void Function(Object? s) onSelected,
       required void Function() setState,
-      bool enableFilter = true}) {
+      bool enableFilter = true,
+      FocusNode? focusNode}) {
     width = max(width, 170);
     final List<DropdownMenuEntry<String>> dropdownItems = [];
 
-    sd.m!.forEach((String? key, Object? value) {
+    sd.map!.forEach((String? key, Object? value) {
       if (key == null || value == null) {
         dropdownItems.add(
             const DropdownMenuEntry(value: "", label: "---", enabled: false));
@@ -466,16 +487,19 @@ class Tools {
     });
     return Row(
       children: [
-        DropdownMenu<String>(
-          menuHeight: 300,
-          width: width,
-          controller: controller,
-          dropdownMenuEntries: dropdownItems,
-          enableFilter: enableFilter,
-          leadingIcon: const Icon(Icons.search),
-          label: Text(sd.label),
-          onSelected: onSelected,
-          trailingIcon: const Icon(Icons.arrow_drop_down),
+        Focus(
+          focusNode: focusNode,
+          child: DropdownMenu<String>(
+            menuHeight: 300,
+            width: width,
+            controller: controller,
+            dropdownMenuEntries: dropdownItems,
+            enableFilter: enableFilter,
+            leadingIcon: const Icon(Icons.search),
+            label: Text(sd.label),
+            onSelected: onSelected,
+            trailingIcon: const Icon(Icons.arrow_drop_down),
+          ),
         ),
         SizedBox(
           width: 23,
@@ -503,7 +527,7 @@ class Tools {
   static Future<bool?> confirmRemoveItem(
       BuildContext context, String title, String s,
       {bool overwrite = false}) async {
-    return buildSimpleAlertDialog(context, title,
+    return PopupShower.buildSimpleAlertDialog(context, title,
         "${!overwrite ? "Êtes-vous sûr(e) de vouloir supprimer $s" : s} Cette action est irréversible",
         actions: [
           ElevatedButton(
@@ -518,27 +542,6 @@ class Tools {
             child: const Text("VALIDER"),
           )
         ]);
-  }
-
-  static Future<bool?> buildSimpleAlertDialog(
-      BuildContext context, String title, String content,
-      {List<Widget>? actions}) {
-    actions ??= [
-      ElevatedButton(
-        onPressed: () => Navigator.of(context).pop(true),
-        style:
-            ButtonStyle(backgroundColor: MaterialStateProperty.all(Colors.red)),
-        child: const Text("OK"),
-      )
-    ];
-
-    return showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-              title: Text(title),
-              content: SizedBox(child: Text(content)),
-              actions: actions,
-            ));
   }
 
   static Widget buildIntChoice(List<int> intList, int? defaultIndex,
@@ -569,5 +572,55 @@ class Tools {
         ),
       ),
     );
+  }
+
+  static Future<SharedPreferences> getSP() async {
+    return await SharedPreferences.getInstance();
+  }
+
+  static Future<PackageInfo> getPackageInfo() async {
+    return await PackageInfo.fromPlatform();
+  }
+
+  static Future<String> getPrefsVersion(
+      {SharedPreferences? sharedPreferences}) async {
+    SharedPreferences sp = sharedPreferences ?? await getSP();
+
+    return sp.getString("appVersion") ?? "";
+  }
+
+  static Future<bool> getShowNewVersion(
+      {SharedPreferences? sharedPreferences}) async {
+    SharedPreferences sp = sharedPreferences ?? await getSP();
+    return sp.getBool("showNewVersion") ?? true;
+  }
+
+  /// takes the value [state] and put it into shared preferences, the function
+  ///  return [state], if [sharedPreferences] is not given it get from Tools
+  static Future<bool> setShowNewVersion(bool state,
+      {required SharedPreferences? sharedPreferences}) async {
+    SharedPreferences sp = sharedPreferences ?? await getSP();
+    await sp.setBool("showNewVersion", state);
+    return state;
+  }
+
+  static Future<String> getPackageVersion({PackageInfo? packageInfo}) async {
+    PackageInfo pi = packageInfo ?? await getPackageInfo();
+    return pi.version;
+  }
+
+  static Future<bool> getShowDialogOnError(
+      {SharedPreferences? sharedPreferences}) async {
+    SharedPreferences sp = sharedPreferences ?? await getSP();
+    return sp.getBool("showDialogOnError") ?? true;
+  }
+
+  /// takes the value [state] and put it into shared preferences, the function
+  ///  return [state], if [sharedPreferences] is not given it get from Tools
+  static Future setShowDialogOnError(bool state,
+      {required SharedPreferences? sharedPreferences}) async {
+    SharedPreferences sp = sharedPreferences ?? await getSP();
+    await sp.setBool("showDialogOnError", state);
+    return state;
   }
 }

@@ -1,28 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:money_for_mima/pages/due_page.dart';
 import 'package:money_for_mima/pages/home_page.dart';
+import 'package:money_for_mima/pages/settings_page.dart';
 import 'package:money_for_mima/pages/transaction_page.dart';
 
-enum PagesEnum {
-  home,
-  due,
-  transaction
-}
+enum PagesEnum { home, due, transaction, settings }
 
 class ItemMenu {
   final String text;
   final Icon icon;
-  final PagesEnum pagesEnum;
-  bool isHovering = false;
+  PagesEnum pageTarget;
+  bool isHovering = false, needAccount;
 
-  ItemMenu(this.text, this.icon, this.pagesEnum);
+  ItemMenu(this.text, this.icon, this.pageTarget, {this.needAccount = true});
 
-  void navigate(PagesEnum currentPage, BuildContext context, int accountID) {
+  /// return true if has navigated else false
+  bool navigate(PagesEnum currentPage, BuildContext context, int accountID) {
     final Widget widget;
-    if (pagesEnum.name == currentPage.name) {
-      return;
+    if (pageTarget.name == currentPage.name) {
+      return false;
     }
-    switch (pagesEnum) {
+    switch (pageTarget) {
       case PagesEnum.home:
         widget = const HomePage();
         break;
@@ -32,9 +30,13 @@ class ItemMenu {
       case PagesEnum.transaction:
         widget = TransactionPage(accountID);
         break;
+      case PagesEnum.settings:
+        widget = SettingsPage(accountID);
+        break;
     }
 
     Navigator.push(
         context, PageRouteBuilder(pageBuilder: (_, __, ___) => widget));
+    return true;
   }
 }

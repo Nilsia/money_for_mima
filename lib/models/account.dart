@@ -3,14 +3,13 @@ import 'package:money_for_mima/models/due.dart';
 import 'package:money_for_mima/models/table_sort_item.dart';
 import 'package:money_for_mima/models/transactions.dart';
 import 'package:money_for_mima/utils/tools.dart';
-import 'package:path/path.dart';
 
 class Account {
   int id;
   String designation, comment;
   bool onlyNth = true, generatedFastly = false, selected;
   bool favorite;
-  double fullBalance, initialBalance, flaggedBalance;
+  int fullBalance, initialBalance, flaggedBalance;
   List<Transactions> _currentTransactionsList, _fullTransactionList = [];
   Map<String, List<Transactions>> trListMap = {};
   List<Due> _dueList;
@@ -235,7 +234,7 @@ class Account {
 
     if (map.containsKey("initBalance")) {
       try {
-        ac.initialBalance = double.parse(map["initBalance"].toString());
+        ac.initialBalance = int.parse(map["initBalance"].toString());
       } catch (e) {
         return null;
       }
@@ -245,7 +244,7 @@ class Account {
 
     if (map.containsKey("fullBalance")) {
       try {
-        ac.fullBalance = double.parse(map["fullBalance"].toString());
+        ac.fullBalance = int.parse(map["fullBalance"].toString());
       } catch (e) {
         return null;
       }
@@ -255,7 +254,7 @@ class Account {
 
     if (map.containsKey("flaggedBalance")) {
       try {
-        ac.flaggedBalance = double.parse(map["flaggedBalance"].toString());
+        ac.flaggedBalance = int.parse(map["flaggedBalance"].toString());
       } catch (e) {
         return null;
       }
@@ -333,7 +332,7 @@ class Account {
     return await db.setFavorite(id, favorite);
   }
 
-  void editFlaggedBalance(bool flagged, double amount) {
+  void editFlaggedBalance(bool flagged, int amount) {
     final int coef = flagged == true ? 1 : -1;
     flaggedBalance += amount * coef;
   }
@@ -385,7 +384,7 @@ class Account {
     return _dueList;
   }
 
-  bool setDueList(List<Due> dueList, DatabaseManager db) {
+  Future<bool> setDueList(List<Due> dueList, DatabaseManager db) async {
     DateTime now = DateTime.now();
     bool updated = false;
     _dueList = dueList;
@@ -393,6 +392,8 @@ class Account {
     // check for each if there is an update done
     _dueList.asMap().forEach((key, value) async {
       Due due = _dueList[key];
+
+      // manage DueOnce => same day or after now
       if (due is DueOnce &&
           (Tools.areSameDay(due.actionDate, now) ||
               now.isAfter(due.actionDate))) {
@@ -402,37 +403,43 @@ class Account {
             id,
             Transactions(
                 0, due.amount, now, due.outsider!, false, fullBalance));
-      } else if (due is Periodic) {
-        DateTime? d = DateTime.now().subtract(const Duration(days: 1));
-        while (now.isAfter(d!)) {
+      }
+
+      // Periodic
+      else if (due is Periodic) {
+        DateTime? d;
+
+        do {
           d = Tools.generateNextDateTime(due.period, due.lastActivated!,
               referenceDate: due.referenceDate);
           if (d == null) {
-            return;
+            updated = false;
+            break;
           }
           if (Tools.areSameDay(d, now) || now.isAfter(d)) {
-            DateTime saveDate = due.lastActivated!;
             updated = true;
             if (await due.setLastActivatedDB(d, db) <= -1) {
-              return;
+              updated = false;
+              break;
             }
             if (await db.addTransactionsToAccount(
                     id,
-                    Transactions(0, due.amount, saveDate, due.outsider, false,
-                        fullBalance,
+                    Transactions(
+                        0, due.amount, d, due.outsider, false, fullBalance,
                         comment: "Opérations provenant d'une occurrence",
                         dueID: due.id)) <=
                 -1) {
-              return;
+              updated = false;
+              break;
             }
           }
-        }
+        } while (now.isAfter(d));
       }
     });
 
     // delete DueOnce executed
     for (int i = 0; i < idToRemove.length; i++) {
-      _dueList.removeAt(idToRemove[i] - i);
+      db.removeDueOfAccount(_dueList.removeAt(idToRemove[i] - i).id, id);
     }
     return updated;
   }
@@ -449,6 +456,16 @@ class Account {
 
   Future<int> setCreationDate(DateTime accountDate, DatabaseManager db) async {
     return db.setAccountCreationDate(id, accountDate);
+  }
+
+  /// search Transaction in currentTrList which has the same id than [trID]
+  int? indexOfTransaction(int trID) {
+    for (int i = 0; i < getCurrentTransactionList().length; i++) {
+      if (getCurrentTransactionList()[i].id == trID) {
+        return i;
+      }
+    }
+    return null;
   }
 
   Future<int> removeTransaction(int indexInList, DatabaseManager db) async {

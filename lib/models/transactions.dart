@@ -4,7 +4,7 @@ import 'package:money_for_mima/utils/tools.dart';
 
 class Transactions {
   int id;
-  double amount, acBalance;
+  int amount, acBalance;
   DateTime? date;
   Outsider? outsider;
   bool flagged;
@@ -36,7 +36,7 @@ class Transactions {
   static Transactions? fromMap(Map<String, Object?> map) {
     Transactions tr = Transactions.none();
     if (map.containsKey("amount")) {
-      tr.amount = double.parse(map["amount"].toString());
+      tr.amount = int.parse(map["amount"].toString());
     } else {
       return null;
     }
@@ -69,7 +69,7 @@ class Transactions {
     }
 
     if (map.containsKey("balanceAcInMoment")) {
-      tr.acBalance = double.tryParse(
+      tr.acBalance = int.tryParse(
             map["balanceAcInMoment"].toString(),
           ) ??
           0;
@@ -129,25 +129,20 @@ class Transactions {
   }
 
   void switchFlagged() {
-    if (flagged) {
-      flagged = false;
-    } else {
-      flagged = true;
-    }
+    flagged = !flagged;
   }
 
-  Future<int> editDB(DatabaseManager db, double? amount, String? date,
-      Outsider? outsider, int acID, String? comment) async {
+  Future<int> editDB(DatabaseManager db, int? newAmount, DateTime newDate,
+      Outsider? newOutsider, int acID, String? newComment) async {
     return await db.editTransaction(
-        id,
-        amount,
-        date != null
-            ? (date == formatDate() ? null : DateTime.tryParse(date))
-            : null,
-        outsider,
-        acID,
-        flagged,
-        this.amount,
-        comment != this.comment ? comment : null);
+        trID: id,
+        newAmount: newAmount ?? amount,
+        newDate: newDate,
+        outsider: newOutsider,
+        acID: acID,
+        flagged: flagged,
+        oldAmount: amount,
+        comment: newComment != comment ? newComment : null,
+        oldDate: date!);
   }
 }

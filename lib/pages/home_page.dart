@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:money_for_mima/models/account.dart';
@@ -7,6 +9,10 @@ import 'package:money_for_mima/models/item_menu.dart';
 import 'package:money_for_mima/pages/due_page.dart';
 import 'package:money_for_mima/pages/transaction_page.dart';
 import 'package:money_for_mima/utils/tools.dart';
+import 'package:money_for_mima/utils/version_manager.dart';
+
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -25,8 +31,8 @@ class _HomePageState extends State<HomePage> {
       acBalanceCont = TextEditingController(),
       acDateCont = TextEditingController();
 
-  final Color accountsBorderColor = Colors.black;
-  final double accountsListWidth = 300;
+  static const Color accountsBorderColor = Colors.black;
+  static const double accountsListWidth = 300;
   bool hasInit = false;
 
   List<ActionItem> actionItemList = [
@@ -35,8 +41,22 @@ class _HomePageState extends State<HomePage> {
 
   Offset _tapPosition = Offset.zero;
 
+  bool hasInternet = false;
+
+  SharedPreferences? prefs;
+  PackageInfo? packageInfo;
+  bool showNewVersionDialog = true;
+  bool showErrorFetching = true;
+
   @override
   void initState() {
+    initSPPI().then((value) {
+      VersionManager.searchNewVersion(
+          context: context,
+          showNewVersionDialog: showNewVersionDialog,
+          showErrorFetching: showErrorFetching,
+          showActualVersion: false);
+    });
     reloadAccountListSecure();
     initTextFieldsDialog();
     super.initState();
@@ -83,7 +103,7 @@ class _HomePageState extends State<HomePage> {
             // title
             Container(
               width: accountsListWidth,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                   border: Border(
                       left: BorderSide(color: accountsBorderColor),
                       right: BorderSide(color: accountsBorderColor),
@@ -174,42 +194,18 @@ class _HomePageState extends State<HomePage> {
                                   return;
                                 }
 
-                                for (int i = 0; i < accountList.length; i++) {
-                                  if (accountList[i].selected) {
-                                    accountList[i]
-                                        .setSelectionDB(
-                                            db, !accountList[i].selected)
-                                        .then((v) async {
-                                      if (v == -1) {
-                                        Tools.showNormalSnackBar(
-                                            context, "Une erreur est survenue");
-                                        return;
-                                      }
-                                      // error occurred
-                                      ac
-                                          .setSelectionDB(db, !ac.selected)
-                                          .then((value) async => {
-                                                if (value < 0)
-                                                  {
-                                                    Tools.showNormalSnackBar(
-                                                        context,
-                                                        "La modification s'est finie avec une erreur"),
-                                                  }
-                                                else
-                                                  {
-                                                    await reloadAccountList(),
-                                                  },
-                                              });
-                                    });
-                                    break;
-                                  }
-                                }
-                                ac.setSelectionDB(db, true).then((value) {
+                                unSelectAllAcounts().then((value) {
                                   if (value <= -1) {
-                                    Tools.showNormalSnackBar(context,
-                                        "Une erreur est survenue lors de la sélection du compte");
+                                    Tools.showNormalSnackBar(
+                                        context, "Une erreur est survenue");
                                   }
-                                  setState(() {});
+                                  ac.setSelectionDB(db, true).then((value) {
+                                    if (value <= -1) {
+                                      Tools.showNormalSnackBar(context,
+                                          "Une erreur est survenue lors de la sélection du compte");
+                                    }
+                                    setState(() {});
+                                  });
                                 });
 
                                 break;
@@ -245,23 +241,32 @@ class _HomePageState extends State<HomePage> {
                                   return;
                                 }
                                 db.removeAccount(ac.id).then((value) {
+                                  Future.delayed(
+                                      const Duration(milliseconds: 3000));
                                   if (value <= -1) {
                                     Tools.showNormalSnackBar(context,
                                         "La suppression du compte a échoué");
                                   } else {
-                                    reloadAccountList().then((value) {
-                                      if (accountList.isNotEmpty) {
-                                        accountList[0]
-                                            .setSelectionDB(db, true)
-                                            .then((value) {
-                                          if (value <= -1) {
-                                            Tools.showNormalSnackBar(context,
-                                                "Une erreur est survenue");
-                                          }
-                                          setState(() {});
-                                        });
-                                      }
-                                    });
+                                    accountList.removeAt(i);
+                                    Account? selectedAccount =
+                                        getSelectedAccount();
+                                    if (selectedAccount == null) {
+                                      reloadAccountList().then((value) {
+                                        if (accountList.isNotEmpty) {
+                                          accountList[0]
+                                              .setSelectionDB(db, true)
+                                              .then((value) {
+                                            if (value <= -1) {
+                                              Tools.showNormalSnackBar(context,
+                                                  "Une erreur est survenue");
+                                            }
+                                            setState(() {});
+                                          });
+                                        }
+                                      });
+                                    } else {
+                                      setState(() {});
+                                    }
                                   }
                                 });
                             }
@@ -305,7 +310,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             Text(
-              ac.fullBalance.toString(),
+              (ac.fullBalance / 100).toString(),
               style: TextStyle(
                   color: ac.fullBalance >= 0 ? Colors.green : Colors.red,
                   fontSize: 20,
@@ -467,12 +472,19 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final double? balance = double.tryParse(acBalanceCont.text.trim());
-    if (balance == null) {
+    double? balanceDouble = double.tryParse(acBalanceCont.text.trim());
+    if (balanceDouble == null) {
       SnackBar snackBar = const SnackBar(content: Text("Solde founi invalide"));
       ScaffoldMessenger.of(context).showSnackBar(snackBar);
       return;
     }
+
+    balanceDouble *= 100;
+    if (balanceDouble.toInt() != balanceDouble) {
+      Tools.showNormalSnackBar(context,
+          "Veuillez fournir un montant initial possédant au maximum 2 décimales.");
+    }
+    int balance = balanceDouble.toInt();
 
     // new account
     if (acParam == null) {
@@ -486,18 +498,16 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      // unselect previous account
-      Account? selectedAC = getSelectedAccount();
-      if (selectedAC != null) {
-        selectedAC.setSelectionDB(db, false);
-      }
+      // unselect all accounts
+      await unSelectAllAcounts();
 
+      // this function this new account selected
       Account ac =
           await db.addAccount(acNameCont.text.trim(), balance, "", accountDate);
       accountList.add(ac);
       setState(() {});
     }
-    // acount edition
+    // account edition
     else {
       if (balance != acParam.initialBalance) {
         db.setAccountInitialBalance(acParam.id, balance).then((value) {
@@ -575,6 +585,19 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
+  Future<int> unSelectAllAcounts() async {
+    int res = 0, tmp;
+    for (Account ac in accountList) {
+      if (ac.selected) {
+        tmp = await ac.setSelectionDB(db, false);
+        if (res == 0) {
+          res = tmp;
+        }
+      }
+    }
+    return res;
+  }
+
   void initTextFieldsDialog({Account? ac}) {
     acDateCont.text = DateFormat("dd/MM/yyyy")
         .format(ac == null ? accountDate : ac.creationDate!);
@@ -599,15 +622,17 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> reloadAccountList() async {
     BoolPointer updated = BoolPointer();
-    db.getAllAccounts(updated: updated).then((value) => {
-          accountList = value,
-          if (updated.i)
-            {
-              Tools.showNormalSnackBar(context,
-                  "Des transactions ont été ajoutées depuis des occurrences")
-            },
-          setState(() {})
-        });
+    db
+        .getAllAccounts(updated: updated, haveToGetDueList: true)
+        .then((value) => {
+              if (updated.i)
+                {
+                  Tools.showNormalSnackBar(context,
+                      "Des transactions ont été ajoutées depuis des occurrences")
+                },
+              accountList = value,
+              setState(() {})
+            });
   }
 
   void goToEditAccount(int acID, PagesEnum e) {
@@ -626,6 +651,17 @@ class _HomePageState extends State<HomePage> {
             PageRouteBuilder(
                 pageBuilder: (_, __, ___) => TransactionPage(acID)));
         break;
+      case PagesEnum.settings:
+        break;
     }
+  }
+
+  Future<void> initSPPI() async {
+    prefs = await Tools.getSP();
+    packageInfo = await Tools.getPackageInfo();
+    showNewVersionDialog =
+        await Tools.getShowNewVersion(sharedPreferences: prefs);
+    showErrorFetching =
+        await Tools.getShowDialogOnError(sharedPreferences: prefs);
   }
 }

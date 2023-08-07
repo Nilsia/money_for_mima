@@ -5,7 +5,7 @@ import 'package:money_for_mima/models/outsider.dart';
 
 class Due {
   int id;
-  double amount;
+  int amount;
   String comment = "";
   Outsider? outsider;
 
@@ -17,7 +17,8 @@ class Due {
 
   static Due? fromMap(Map<String, Object?> map, Outsider outsider) {
     int id;
-    double amount;
+    int amount;
+    String comment = "";
     if (map.containsKey("id")) {
       id = int.parse(map["id"].toString());
     } else {
@@ -25,9 +26,13 @@ class Due {
     }
 
     if (map.containsKey("amount")) {
-      amount = double.parse(map["amount"].toString());
+      amount = int.parse(map["amount"].toString());
     } else {
       return null;
+    }
+
+    if (map.containsKey("comment")) {
+      comment = map["comment"].toString();
     }
 
     if (!map.containsKey("type")) {
@@ -42,12 +47,13 @@ class Due {
 
     // Periodic
     if (map["type"].toString() == "Periodic") {
-      return Periodic.fromJson(jsonStr, id, amount, outsider);
+      return Periodic.fromJson(jsonStr, id, amount, comment, outsider);
     }
     // DueOnce
     else if (map["type"].toString() == "DueOnce") {
-      return DueOnce.fromJson(jsonStr, id, amount, outsider);
+      return DueOnce.fromJson(jsonStr, id, amount, comment, outsider);
     }
+
     return null;
   }
 
@@ -88,7 +94,8 @@ class Periodic extends Due {
   DateTime? referenceDate;
 
   Periodic(super.id, super.amount, super.outsider, this.referenceDate,
-      this.lastActivated, this.period);
+      this.lastActivated, this.period,
+      {super.comment = ""});
 
   Periodic.none(super.id, super.amount, super.outsider, this.referenceDate,
       {this.period = Period.biAnnual, this.lastActivated}) {
@@ -118,7 +125,7 @@ class Periodic extends Due {
   }
 
   static Periodic? fromJson(
-      String jsonStr, int id, double amount, Outsider outsider) {
+      String jsonStr, int id, int amount, String comment, Outsider outsider) {
     final dynamic jsonClass = json.decode(jsonStr);
     DateTime? refDate = DateTime.tryParse(jsonClass["referenceDate"]);
     DateTime? lastActivatedDate = DateTime.tryParse(jsonClass["lastActivated"]);
@@ -130,8 +137,9 @@ class Periodic extends Due {
 
     Period p = Period.values[index];
 
-    Periodic periodic =
-        Periodic(id, amount, outsider, refDate, lastActivatedDate, p);
+    Periodic periodic = Periodic(
+        id, amount, outsider, refDate, lastActivatedDate, p,
+        comment: comment);
     return periodic;
   }
 
@@ -176,7 +184,8 @@ class Periodic extends Due {
 class DueOnce extends Due {
   DateTime actionDate;
 
-  DueOnce(super.id, super.amount, super.outsider, this.actionDate);
+  DueOnce(super.id, super.amount, super.outsider, this.actionDate,
+      {super.comment = ""});
 
   Map<String, String> toJsonLight() => {"actionDate": actionDate.toString()};
 
@@ -195,10 +204,12 @@ class DueOnce extends Due {
   }
 
   static DueOnce? fromJson(
-      String jsonStr, int id, double amount, Outsider outsider) {
+      String jsonStr, int id, int amount, String comment, Outsider outsider) {
     final dynamic jsonClass = json.decode(jsonStr);
     DateTime? dateTime = DateTime.tryParse(jsonClass["actionDate"]);
-    return dateTime != null ? DueOnce(id, amount, outsider, dateTime) : null;
+    return dateTime != null
+        ? DueOnce(id, amount, outsider, dateTime, comment: comment)
+        : null;
   }
 
   /// return the new Values as a Map

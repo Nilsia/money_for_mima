@@ -49,7 +49,7 @@ class _DuePageState extends State<DuePage> {
   static const double rowHeaderHeight = 38.0;
   static const double rowHeight = 40.0;
   static const double amountWidth = 140,
-      outsiderWidth = 500,
+      outsiderWidth = 300,
       periodicityWidth = 120,
       dateWidth = 100,
       commentWidthDefault = 500;
@@ -103,6 +103,7 @@ class _DuePageState extends State<DuePage> {
             outsiderWidth -
             dateWidth -
             Tools.menuWidth -
+            periodicityWidth -
             4 -
             16,
         commentWidthDefault);
@@ -166,7 +167,7 @@ class _DuePageState extends State<DuePage> {
                 child: Row(
                   children: [
                     Text(
-                        "Solde pointé : ${account.flaggedBalance.toStringAsFixed(2)}"),
+                        "Solde pointé : ${(account.flaggedBalance / 100).toString()}"),
                   ],
                 ),
               ),
@@ -174,7 +175,7 @@ class _DuePageState extends State<DuePage> {
                   margin: const EdgeInsets.all(8),
                   width: infoWidth,
                   child: Text(
-                      "Solde total : ${account.fullBalance.toStringAsFixed(2)}"))
+                      "Solde total : ${(account.fullBalance / 100).toString()}"))
             ]),
           ),
         ],
@@ -196,6 +197,8 @@ class _DuePageState extends State<DuePage> {
           Tools.buildTableCell("PÉRIODICITÉ", rowHeaderHeight, periodicityWidth,
               decoration: rightBorder, alignment: Alignment.center),
           Tools.buildTableCell("TIERS", rowHeaderHeight, outsiderWidth,
+              alignment: Alignment.center, decoration: rightBorder),
+          Tools.buildTableCell("COMMENTAIRES", rowHeaderHeight, commentWidth,
               alignment: Alignment.center)
         ],
       ),
@@ -273,10 +276,11 @@ class _DuePageState extends State<DuePage> {
                       setState(() {});
                     },
                     child: Tools.buildTableCell(
-                        due.amount.toString(), rowHeight, amountWidth,
+                        (due.amount / 100).toString(), rowHeight, amountWidth,
                         decoration: rightBorder,
                         alignment: Alignment.center,
-                        color: amountColor),
+                        color: amountColor,
+                        fontWeight: FontWeight.bold),
                   ),
                   // periodicity
                   InkWell(
@@ -306,7 +310,25 @@ class _DuePageState extends State<DuePage> {
                     onDoubleTap: () => manageTransactionsEdition(due),
                     child: Tools.buildTableCell(
                         outsider.name, rowHeight, outsiderWidth,
-                        alignment: Alignment.center),
+                        alignment: Alignment.center, decoration: rightBorder),
+                  ),
+                  // comment
+                  Tooltip(
+                    message: due.comment,
+                    child: InkWell(
+                      mouseCursor: SystemMouseCursors.basic,
+                      onTap: () => Tools.manageTableRowClick(
+                          i, clickedRowsList, actionItemList,
+                          setState: () => setState(() {})),
+                      onHover: (bool isHovering) {
+                        hoveringRowIndex = isHovering ? i : -1;
+                        setState(() {});
+                      },
+                      onDoubleTap: () => manageTransactionsEdition(due),
+                      child: Tools.buildTableCell(
+                          due.comment, rowHeight, commentWidth,
+                          alignment: Alignment.center),
+                    ),
                   )
                 ],
               ),
@@ -343,7 +365,7 @@ class _DuePageState extends State<DuePage> {
             ? Tools.formatDate(date)
             : Tools.formatDate(selectedDate));
     amountController = TextEditingController(
-        text: due.amount == 0 ? "" : due.amount.abs().toString());
+        text: due.amount == 0 ? "" : (due.amount / 100).abs().toString());
     outsiderController = TextEditingController();
     outsiderController = TextEditingController(
         text: due.outsider!.isNone() ? "" : due.outsider!.name);
@@ -610,7 +632,7 @@ class _DuePageState extends State<DuePage> {
           ));
     }
 
-    SDenum sd = SDenum("tiers", m: Tools.getOutsiderListName(oList));
+    SDenum sd = SDenum("tiers", map: Tools.getOutsiderListName(oList));
 
     double width = 400, height = 300;
 
@@ -757,14 +779,20 @@ class _DuePageState extends State<DuePage> {
       case DialogError.invalidOutsider:
         Tools.showNormalSnackBar(context, "L'intitulé du tiers est invalide");
         return;
+      case DialogError.tooMuchPrecision:
+        Tools.showNormalSnackBar(context,
+            "Veuillez fournir un montant comportant au maximum 2 chiffres après la virgule.");
+        return;
       case DialogError.unknown:
       case DialogError.noError:
       case DialogError.dateAfter:
     }
 
     // are verified above
-    double amount = double.tryParse(amountController.text.trim())! *
-        (isDebitIcon() ? -1 : 1);
+    int amount = double.tryParse(amountController.text.trim())!.toInt() *
+        (isDebitIcon() ? -1 : 1) *
+        100;
+
     Due newDue;
 
     // DueOnce
@@ -811,6 +839,7 @@ class _DuePageState extends State<DuePage> {
       }
     }
 
+    newDue.comment = commentTrController.text.trim();
     newDue.outsider!.name = outsiderController.text.trim();
 
     // add
@@ -837,7 +866,7 @@ class _DuePageState extends State<DuePage> {
       }
 
       db
-          .editDue(newDue, account.getDueList()[clickedRowsList[0]])
+          .editDue(newDue, due ?? account.getDueList()[clickedRowsList[0]])
           .then((value) => {
                 if (value <= -1)
                   {
@@ -876,8 +905,13 @@ class _DuePageState extends State<DuePage> {
   }
 
   DialogError allControllerCompleted(Period? period) {
-    if (double.tryParse(amountController.text.trim()) == null) {
+    double? amountTMP = double.tryParse(amountController.text.trim());
+    if (amountTMP == null) {
       return DialogError.invalidAmount;
+    }
+    amountTMP *= 100;
+    if (amountTMP.toInt() != amountTMP) {
+      return DialogError.tooMuchPrecision;
     } else if (period == null &&
         (Tools.areSameDay(DateTime.now(), selectedDate) ||
             selectedDate.isBefore(DateTime.now()))) {
