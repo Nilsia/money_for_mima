@@ -37,6 +37,14 @@ impl CommonFunctions for Upgrader {
     fn exec_extension(&self) -> &str {
         &self.exec_extension
     }
+
+    fn insert_remote_data(&mut self, data: DataHashMap) {
+        let _ = self.remote_value.insert(data);
+    }
+
+    fn insert_logfilename(&mut self,filename:PathBuf) {
+        let _ = self.log_filename.insert(filename);
+    }
 }
 
 impl Upgrader {

@@ -22,6 +22,8 @@ pub trait CommonFunctions {
     fn files_container(&self) -> Option<&PathBuf>;
     fn remote_data(&mut self) -> Option<&mut DataHashMap>;
     fn exec_extension(&self) -> &str;
+    fn insert_remote_data(&mut self, data: DataHashMap);
+    fn insert_logfilename(&mut self, filename: PathBuf);
 
     /// Download the zip file that contain the files to run Money For Mima, the only element
     /// requested is the file path in which the zip file will be writen
@@ -127,8 +129,8 @@ pub trait CommonFunctions {
             if self.files_container().is_none() {
                 return Err(Box::new(CustomError::UnkownError));
             }
-            let mut log_filename = self.files_container().unwrap().join("exec.log");
-            let _ = self.log_filename().insert(&mut log_filename);
+            let log_filename = self.files_container().unwrap().join("exec.log");
+            self.insert_logfilename(log_filename);
         }
 
         let date = chrono::offset::Utc::now();
@@ -152,8 +154,7 @@ pub trait CommonFunctions {
     /// already set return the value get before
     async fn get_remote_data(&mut self) -> Result<&mut DataHashMap, Error> {
         if self.remote_data().is_none() {
-            let mut new_data = DataHashMap::new();
-            let _ = self.remote_data().insert(&mut new_data);
+            self.insert_remote_data(DataHashMap::new());
             let octocrab = octocrab::instance();
             let last_release_tmp = octocrab
                 .repos("Nilsia", "money_for_mima")
