@@ -789,9 +789,10 @@ class _DuePageState extends State<DuePage> {
     }
 
     // are verified above
-    int amount = double.tryParse(amountController.text.trim())!.toInt() *
-        (isDebitIcon() ? -1 : 1) *
-        100;
+    int amount = (double.tryParse(amountController.text.trim())! *
+            (isDebitIcon() ? -1 : 1) *
+            100)
+        .toInt();
 
     Due newDue;
 
