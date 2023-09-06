@@ -4,8 +4,7 @@ pub mod custom_error;
 pub mod log_level;
 pub mod shortcut_trait;
 
-pub const DEFAULT_REMOTE_HOST: &str = "https://leria-etud.univ-angers.fr/~ddasilva/money_for_mima/";
-pub const VERSION: &str = "v1.0.1";
+pub const VERSION: &str = "v1.0.2";
 pub const CONFIG_FILE_NAME: &str = "config.json";
 
 pub enum ReturnValue {

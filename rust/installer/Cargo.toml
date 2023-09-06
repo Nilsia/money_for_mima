@@ -1,6 +1,6 @@
 [package]
 name = "installer"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -11,7 +11,7 @@ reqwest = "0.11.18"
 fs_extra = "1.3.0"
 tokio = { version = "1.28.2", features = ["full"] }
 serde_json = "1.0.87"
-serde = { version = "1.0.147", features = ["derive"] }
+serde = { version = "1.0.188", features = ["derive"] }
 async-trait = "0.1.72"
 zip-extract = "0.1.2"
 

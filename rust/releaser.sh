@@ -5,12 +5,20 @@ if [ "${PWD##*/}" != 'rust' ]; then
     exit 0
 fi
 
-oldVersionWithoutV="$(grep ^version installer/Cargo.toml | cut -d ' ' -f3 | tr -d '"')"
-version="$(grep VERSION ./lib/src/lib.rs | cut -d ' ' -f6 | tr -d '"' | tr -d ';')"
+oldVersionWithoutV="$(grep VERSION ./lib/src/lib.rs | cut -d ' ' -f6 | tr -d '"' | tr -d \; | cut -c 2-)"
+echo "Old version : v$oldVersionWithoutV"
+read -rp "Please provide the new version : v" version
+version="v$version"
+
+read -rp "Is it the right version : $version ?" check
+if [ "$check" != "y" ]; then
+    echo "exiting"
+    exit 0
+fi
 
 if [ "$version" != "v$oldVersionWithoutV" ];then 
-    filesToEditWithoutV=("installer/Cargo.toml" "upgrader/Cargo.toml" "uninstaller/Cargo.toml" "lib/Cargo.toml" "../pubspec.yaml")
-    filesToEditWithV=("../config.json" )
+    filesToEditWithoutV=("../pubspec.yaml")
+    filesToEditWithV=("../config.json" "./lib/src/lib.rs")
         
     echo "Changing version from v$oldVersionWithoutV to $version"
     for file in "${filesToEditWithoutV[@]}"; do
