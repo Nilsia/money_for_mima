@@ -195,7 +195,7 @@ class _TransactionPageState extends State<TransactionPage> {
   }
 
   void initControllers({Transactions? tr}) {
-    tr ??= Transactions.none();
+    tr ??= Transactions.none(date: selectedDate);
     String outsiderContent = tr.outsider!.isNone() ? "" : tr.outsider!.name;
     changeAllOutsiderName = false;
     selectedDate = tr.date!;
@@ -757,14 +757,16 @@ class _TransactionPageState extends State<TransactionPage> {
   }
 
   DialogError allControllerCompleted({required bool isRowAdder}) {
+    // check for double precision old methode was not working
+    List<String> amountList = amountController.text.trim().split(".");
+    if (amountList.length >= 2 && amountList[1].length > 2) {
+      return DialogError.tooMuchPrecision;
+    }
     double? amountTMP = double.tryParse(amountController.text.trim());
     if (amountTMP == null) {
       return DialogError.invalidAmount;
     }
-    amountTMP *= 100;
-    if (amountTMP.toInt() != amountTMP) {
-      return DialogError.tooMuchPrecision;
-    } else if ((isRowAdder && outsiderRowController.text.trim().isEmpty) ||
+    if ((isRowAdder && outsiderRowController.text.trim().isEmpty) ||
         (!isRowAdder && outsiderDialogController.text.trim().isEmpty)) {
       return DialogError.invalidOutsider;
     }
@@ -781,7 +783,7 @@ class _TransactionPageState extends State<TransactionPage> {
     oList.add(Outsider(0, outsiderName));
 
     // cannot be null
-    int amount = (double.tryParse(amountController.text.trim())! * 100).toInt();
+    int amount = (double.tryParse(amountController.text.trim())! * 100).round();
     db
         .addTransactionsToAccount(
             account.id,
@@ -1164,7 +1166,7 @@ class _TransactionPageState extends State<TransactionPage> {
     db.getAccount(accountID, nbTr: nbTr, haveToGetTrList: true).then((value) {
       if (value == null) {
         Tools.showNormalSnackBar(context,
-            "Une erreur est survenuem, impossible de récupérer votre compte");
+            "Une erreur est survenue, impossible de récupérer votre compte");
         Navigator.push(context,
             PageRouteBuilder(pageBuilder: (_, __, ___) => const HomePage()));
       } else {

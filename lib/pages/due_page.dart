@@ -544,7 +544,7 @@ class _DuePageState extends State<DuePage> {
       return k;
     }
 
-    int dueTypeIndex = 0;
+    int dueTypeIndex = 3;
 
     // set index of dropdown to be a reference to the Due it not null
     if (due != null) {
@@ -792,7 +792,7 @@ class _DuePageState extends State<DuePage> {
     int amount = (double.tryParse(amountController.text.trim())! *
             (isDebitIcon() ? -1 : 1) *
             100)
-        .toInt();
+        .round();
 
     Due newDue;
 
@@ -851,7 +851,7 @@ class _DuePageState extends State<DuePage> {
                 Tools.showNormalSnackBar(context,
                     "Une erreur est survenue lors de l'ajout de l'occurrence"),
               },
-            setState(() {}),
+            reloadAccount()
           });
       oList.add(Outsider(0, outsiderController.text.trim()));
     } else
@@ -906,14 +906,16 @@ class _DuePageState extends State<DuePage> {
   }
 
   DialogError allControllerCompleted(Period? period) {
+    // check for double precision old methode was not working
+    List<String> amountList = amountController.text.trim().split(".");
+    if (amountList.length >= 2 && amountList[1].length > 2) {
+      return DialogError.tooMuchPrecision;
+    }
     double? amountTMP = double.tryParse(amountController.text.trim());
     if (amountTMP == null) {
       return DialogError.invalidAmount;
     }
-    amountTMP *= 100;
-    if (amountTMP.toInt() != amountTMP) {
-      return DialogError.tooMuchPrecision;
-    } else if (period == null &&
+    if (period == null &&
         (Tools.areSameDay(DateTime.now(), selectedDate) ||
             selectedDate.isBefore(DateTime.now()))) {
       return DialogError.dateBefore;
