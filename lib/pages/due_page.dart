@@ -544,7 +544,7 @@ class _DuePageState extends State<DuePage> {
       return k;
     }
 
-    int dueTypeIndex = 0;
+    int dueTypeIndex = 3;
 
     // set index of dropdown to be a reference to the Due it not null
     if (due != null) {
