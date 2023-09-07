@@ -195,7 +195,7 @@ class _TransactionPageState extends State<TransactionPage> {
   }
 
   void initControllers({Transactions? tr}) {
-    tr ??= Transactions.none();
+    tr ??= Transactions.none(date: selectedDate);
     String outsiderContent = tr.outsider!.isNone() ? "" : tr.outsider!.name;
     changeAllOutsiderName = false;
     selectedDate = tr.date!;
