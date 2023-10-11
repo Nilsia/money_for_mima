@@ -10,7 +10,7 @@ echo "Old version : v$oldVersionWithoutV"
 read -rp "Please provide the new version : v" version
 version="v$version"
 
-read -rp "Is it the right version : $version ?" check
+read -rp "Is it the right version (y/N) : $version ?" check
 if [ "$check" != "y" ]; then
     echo "exiting"
     exit 0
@@ -25,7 +25,7 @@ if [ "$version" != "v$oldVersionWithoutV" ];then
         if [ ! -e "$file" ];then 
             continue
         fi
-        sed -i "s/$oldVersionWithoutV/$(cut -c 2- <<< "$version" )/g" "$file"
+        sed -i "s/version: \"$oldVersionWithoutV\"/version: \"$(cut -c 2- <<< "$version" )\"/g" "$file"
         echo "$file edited"
     done
     
