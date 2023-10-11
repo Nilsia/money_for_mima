@@ -29,8 +29,8 @@ class Transactions {
       this.dueID = -1,
       this.accountID = -1,
       this.comment = ""}) {
-    date = DateTime.now();
-    outsider = Outsider.none();
+    date ??= DateTime.now();
+    outsider ??= Outsider.none();
   }
 
   static Transactions? fromMap(Map<String, Object?> map) {
