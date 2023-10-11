@@ -4,7 +4,7 @@ pub mod custom_error;
 pub mod log_level;
 pub mod shortcut_trait;
 
-pub const VERSION: &str = "v1.0.2";
+pub const VERSION: &str = "v1.0.3";
 pub const CONFIG_FILE_NAME: &str = "config.json";
 
 pub enum ReturnValue {
