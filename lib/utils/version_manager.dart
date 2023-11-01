@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:github/github.dart';
-import 'package:money_for_mima/utils/tools.dart';
+import 'package:money_for_mima/models/user_data.dart';
 import 'package:observe_internet_connectivity/observe_internet_connectivity.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,8 +11,7 @@ class VersionManager {
   static void searchNewVersion(
       {SharedPreferences? prefs,
       required BuildContext context,
-      required bool showNewVersionDialog,
-      required bool showErrorFetching,
+      required UserData userData,
       bool showCheckBox = true,
       bool showActualVersion = true,
       bool showNetworkError = false}) async {
@@ -27,7 +26,7 @@ class VersionManager {
           String? lastVersion = repositories[0].tagName;
           if (lastVersion == null) {
             await _showDialogOnErrorVersionGetting(
-                showErrorFetching,
+                userData,
                 context,
                 "Impossible de récupérer la version distante, veuillez référer cette erreur aux développeurs.",
                 showCheckBox);
@@ -41,7 +40,7 @@ class VersionManager {
                 decoder.convert(configFile.readAsStringSync());
             if (!localConfig.containsKey("version")) {
               await _showDialogOnErrorVersionGetting(
-                  showErrorFetching,
+                  userData,
                   context,
                   "Le fichier de configuration n'est pas valide, veuillez exécuter upgrade dans le dossier ${Directory.current} afin de résoudre le problème.",
                   showCheckBox);
@@ -51,14 +50,14 @@ class VersionManager {
             String localVersion = localConfig["version"];
 
             if (localVersion != lastVersion) {
-              await _showDialogNewVersion(showNewVersionDialog, context,
-                  lastVersion, localVersion, showCheckBox);
+              await _showDialogNewVersion(
+                  userData, context, lastVersion, localVersion, showCheckBox);
             } else if (showActualVersion) {
               await _showDialogAlreadyUpToDate(context, localVersion);
             }
           } on Exception {
             await _showDialogOnErrorVersionGetting(
-                showErrorFetching,
+                userData,
                 context,
                 "Le fichier de configuration n'a pas été trouvé, veuillez lancer Money For Mima dans le bon dossier.",
                 showCheckBox);
@@ -70,9 +69,9 @@ class VersionManager {
     });
   }
 
-  static Future<void> _showDialogOnErrorVersionGetting(bool showErrorFetching,
+  static Future<void> _showDialogOnErrorVersionGetting(UserData userData,
       BuildContext context, String text, bool showCheckBox) async {
-    if (!showErrorFetching) {
+    if (!userData.showDialogOnError) {
       return;
     }
     bool doNotShowAgain = false;
@@ -97,9 +96,8 @@ class VersionManager {
                                   value: doNotShowAgain,
                                   onChanged: (bool? v) async {
                                     if (v != null) {
-                                      doNotShowAgain =
-                                          !await Tools.setShowDialogOnError(!v,
-                                              sharedPreferences: null);
+                                      doNotShowAgain = !await userData
+                                          .setShowDialogOnError(!v);
                                       setState(() {});
                                     }
                                   }),
@@ -142,12 +140,12 @@ class VersionManager {
   }
 
   static Future<void> _showDialogNewVersion(
-      bool showNewVersionDialog,
+      UserData userData,
       BuildContext context,
       String newVersion,
       String currentVersion,
       bool showCheckBox) async {
-    if (!showNewVersionDialog) {
+    if (!userData.showNewVersion) {
       return;
     }
     bool doNotShowAgain = false;
@@ -179,9 +177,8 @@ class VersionManager {
                                           value: doNotShowAgain,
                                           onChanged: (bool? v) async {
                                             if (v != null) {
-                                              doNotShowAgain = !await Tools
-                                                  .setShowNewVersion(!v,
-                                                      sharedPreferences: null);
+                                              doNotShowAgain = !await userData
+                                                  .setShowNewVersion(!v);
                                               setState(() {});
                                             }
                                           }),

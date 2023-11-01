@@ -390,7 +390,7 @@ class Account {
     _dueList = dueList;
     List<int> idToRemove = [];
     // check for each if there is an update done
-    _dueList.asMap().forEach((key, value) async {
+    for (int key = 0; key < _dueList.length; key++) {
       Due due = _dueList[key];
 
       // manage DueOnce => same day or after now
@@ -399,10 +399,13 @@ class Account {
               now.isAfter(due.actionDate))) {
         idToRemove.add(key);
         updated = true;
-        db.addTransactionsToAccount(
-            id,
-            Transactions(
-                0, due.amount, now, due.outsider!, false, fullBalance));
+        if (await db.addTransactionsToAccount(
+                id,
+                Transactions(
+                    0, due.amount, now, due.outsider!, false, fullBalance)) <=
+            -1) {
+          updated = false;
+        }
       }
 
       // Periodic
@@ -435,11 +438,11 @@ class Account {
           }
         } while (now.isAfter(d));
       }
-    });
+    }
 
     // delete DueOnce executed
-    for (int i = 0; i < idToRemove.length; i++) {
-      db.removeDueOfAccount(_dueList.removeAt(idToRemove[i] - i).id, id);
+    for (int i = idToRemove.length - 1; i >= 0; i--) {
+      db.removeDueOfAccount(_dueList.removeAt(idToRemove[i]).id, id);
     }
     return updated;
   }
@@ -476,8 +479,9 @@ class Account {
   Future<int> removeTransactionsList(
       List<int> trIDList, DatabaseManager db) async {
     int res = 0, tmp;
-    for (int i = 0; i < trIDList.length; i++) {
-      tmp = await removeTransaction(trIDList[i] - i, db);
+    trIDList.sort();
+    for (int i = trIDList.length - 1; i >= 0; i--) {
+      tmp = await removeTransaction(trIDList[i], db);
       if (res == 0) {
         res = tmp;
       }

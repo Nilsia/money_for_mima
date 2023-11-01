@@ -11,8 +11,6 @@ import 'package:money_for_mima/models/item_menu.dart';
 import 'package:money_for_mima/models/outsider.dart';
 import 'package:money_for_mima/utils/custom_color_schema.dart';
 import 'package:money_for_mima/utils/popup_shower.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class BoolPointer {
   bool i = false;
@@ -572,55 +570,5 @@ class Tools {
         ),
       ),
     );
-  }
-
-  static Future<SharedPreferences> getSP() async {
-    return await SharedPreferences.getInstance();
-  }
-
-  static Future<PackageInfo> getPackageInfo() async {
-    return await PackageInfo.fromPlatform();
-  }
-
-  static Future<String> getPrefsVersion(
-      {SharedPreferences? sharedPreferences}) async {
-    SharedPreferences sp = sharedPreferences ?? await getSP();
-
-    return sp.getString("appVersion") ?? "";
-  }
-
-  static Future<bool> getShowNewVersion(
-      {SharedPreferences? sharedPreferences}) async {
-    SharedPreferences sp = sharedPreferences ?? await getSP();
-    return sp.getBool("showNewVersion") ?? true;
-  }
-
-  /// takes the value [state] and put it into shared preferences, the function
-  ///  return [state], if [sharedPreferences] is not given it get from Tools
-  static Future<bool> setShowNewVersion(bool state,
-      {required SharedPreferences? sharedPreferences}) async {
-    SharedPreferences sp = sharedPreferences ?? await getSP();
-    await sp.setBool("showNewVersion", state);
-    return state;
-  }
-
-  static Future<String> getPackageVersion({PackageInfo? packageInfo}) async {
-    PackageInfo pi = packageInfo ?? await getPackageInfo();
-    return pi.version;
-  }
-
-  static Future<bool> getShowDialogOnError(
-      {SharedPreferences? sharedPreferences}) async {
-    SharedPreferences sp = sharedPreferences ?? await getSP();
-    return sp.getBool("showDialogOnError") ?? true;
-  }
-
-  /// takes the value [state] and put it into shared preferences, the function
-  ///  return [state], if [sharedPreferences] is not given it get from Tools
-  static Future setShowDialogOnError(bool state,
-      {required SharedPreferences? sharedPreferences}) async {
-    SharedPreferences sp = sharedPreferences ?? await getSP();
-    await sp.setBool("showDialogOnError", state);
-    return state;
   }
 }

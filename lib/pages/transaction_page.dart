@@ -458,9 +458,7 @@ class _TransactionPageState extends State<TransactionPage> {
                       controller: outsiderRowController,
                       sd: sd,
                       width: outsiderWidth - 40 - 1,
-                      onSelected: (Object? o) {
-                        print("hi body");
-                      },
+                      onSelected: (Object? o) {},
                       setState: () => setState(() {}),
                       focusNode: FocusNode(onKey: (node, event) {
                         if (event.isKeyPressed(LogicalKeyboardKey.enter)) {

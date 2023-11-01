@@ -6,13 +6,11 @@ import 'package:money_for_mima/models/account.dart';
 import 'package:money_for_mima/models/action_item.dart';
 import 'package:money_for_mima/models/database_manager.dart';
 import 'package:money_for_mima/models/item_menu.dart';
+import 'package:money_for_mima/models/user_data.dart';
 import 'package:money_for_mima/pages/due_page.dart';
 import 'package:money_for_mima/pages/transaction_page.dart';
 import 'package:money_for_mima/utils/tools.dart';
 import 'package:money_for_mima/utils/version_manager.dart';
-
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -43,19 +41,13 @@ class _HomePageState extends State<HomePage> {
 
   bool hasInternet = false;
 
-  SharedPreferences? prefs;
-  PackageInfo? packageInfo;
-  bool showNewVersionDialog = true;
-  bool showErrorFetching = true;
+  UserData userData = UserData.none();
 
   @override
   void initState() {
-    initSPPI().then((value) {
+    initUserData().then((value) {
       VersionManager.searchNewVersion(
-          context: context,
-          showNewVersionDialog: showNewVersionDialog,
-          showErrorFetching: showErrorFetching,
-          showActualVersion: false);
+          context: context, userData: userData, showActualVersion: false);
     });
     reloadAccountListSecure();
     initTextFieldsDialog();
@@ -602,7 +594,7 @@ class _HomePageState extends State<HomePage> {
     acDateCont.text = DateFormat("dd/MM/yyyy")
         .format(ac == null ? accountDate : ac.creationDate!);
     acBalanceCont = TextEditingController(
-        text: ac == null ? "" : ac.initialBalance.toString());
+        text: ac == null ? "" : (ac.initialBalance / 100).toString());
     acNameCont = TextEditingController(text: ac == null ? "" : ac.designation);
     accountDate = ac == null ? DateTime.now() : ac.creationDate!;
   }
@@ -656,12 +648,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> initSPPI() async {
-    prefs = await Tools.getSP();
-    packageInfo = await Tools.getPackageInfo();
-    showNewVersionDialog =
-        await Tools.getShowNewVersion(sharedPreferences: prefs);
-    showErrorFetching =
-        await Tools.getShowDialogOnError(sharedPreferences: prefs);
+  Future<void> initUserData() async {
+    userData = await UserData().setData();
   }
 }

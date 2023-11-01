@@ -5,12 +5,11 @@ import 'package:money_for_mima/models/account.dart';
 import 'package:money_for_mima/models/database_manager.dart';
 import 'package:money_for_mima/models/item_menu.dart';
 import 'package:money_for_mima/models/outsider.dart';
+import 'package:money_for_mima/models/user_data.dart';
 import 'package:money_for_mima/pages/home_page.dart';
 import 'package:money_for_mima/pages/settings/outsider_list_view.dart';
 import 'package:money_for_mima/utils/tools.dart';
 import 'package:money_for_mima/utils/version_manager.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsPage extends StatefulWidget {
   final int accountID;
@@ -33,30 +32,22 @@ class _SettingsPageState extends State<SettingsPage> {
   // static const double infoHeight = 70;
   static const double popupSettingsWigth = 400;
 
-  SharedPreferences? prefs;
+  UserData userData = UserData.none();
   String packageVersion = "";
-  PackageInfo? packageInfo;
-  bool showNewVersionDialog = true;
-  bool showErrorFetching = true;
 
   List<int> outsiderIdListUsed = [];
 
   @override
   void initState() {
     accountID = super.widget.accountID;
-    initSPPI();
+    initUserData();
     initAll();
     super.initState();
   }
 
-  Future<void> initSPPI() async {
-    prefs = await Tools.getSP();
-    packageInfo = await Tools.getPackageInfo();
-    showNewVersionDialog =
-        await Tools.getShowNewVersion(sharedPreferences: prefs);
-    showErrorFetching =
-        await Tools.getShowDialogOnError(sharedPreferences: prefs);
-    packageVersion = packageInfo!.version;
+  Future<void> initUserData() async {
+    userData = await UserData().setData();
+    packageVersion = userData.packageInfo!.version;
     setState(() {});
   }
 
@@ -111,17 +102,16 @@ class _SettingsPageState extends State<SettingsPage> {
                               onTap: () {
                                 VersionManager.searchNewVersion(
                                     context: context,
-                                    showNewVersionDialog: true,
-                                    showErrorFetching: true,
+                                    userData: userData,
                                     showCheckBox: false,
                                     showNetworkError: true);
                               },
-                              child: SizedBox(
+                              child: const SizedBox(
                                 width: 250,
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.refresh),
-                                    const Text("Rechercher des mises à jour")
+                                    Icon(Icons.refresh),
+                                    Text("Rechercher des mises à jour")
                                   ],
                                 ),
                               ),
@@ -182,15 +172,13 @@ class _SettingsPageState extends State<SettingsPage> {
                       vertical: BorderSide(color: Colors.black))),
               child: InkWell(
                 onTap: () async {
-                  showNewVersionDialog = await Tools.setShowNewVersion(
-                    !showNewVersionDialog,
-                    sharedPreferences: prefs,
-                  );
+                  userData.switchNewVersionValue();
                   setState(() {});
                 },
                 child: Row(
                   children: [
-                    Checkbox(value: showNewVersionDialog, onChanged: (v) => {}),
+                    Checkbox(
+                        value: userData.showNewVersion, onChanged: (v) => {}),
                     const SizedBox(
                       width: popupSettingsWigth - 34,
                       child: Text(
@@ -214,14 +202,14 @@ class _SettingsPageState extends State<SettingsPage> {
                       left: BorderSide(color: Colors.black))),
               child: InkWell(
                 onTap: () async {
-                  showErrorFetching = await Tools.setShowDialogOnError(
-                      !showErrorFetching,
-                      sharedPreferences: prefs);
+                  userData.switchDialogErrorValue();
                   setState(() {});
                 },
                 child: Row(
                   children: [
-                    Checkbox(value: showErrorFetching, onChanged: (v) => {}),
+                    Checkbox(
+                        value: userData.showDialogOnError,
+                        onChanged: (v) => {}),
                     const SizedBox(
                         width: popupSettingsWigth - 34,
                         child: Text.rich(

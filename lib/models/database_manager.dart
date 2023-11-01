@@ -545,11 +545,13 @@ class DatabaseManager {
 
         // diff > 0 => tr.date after tr_.date (new Tr after old tr_)
         DateTime dateTr = DateTime(tr.date!.year, tr.date!.month, tr.date!.day);
-        final Duration diff = tr.date!.difference(tr_.date!);
+        DateTime dateTr_ =
+            DateTime(tr_.date!.year, tr_.date!.month, tr_.date!.day);
+        final Duration diff = tr.date!.difference(dateTr_);
         // check if the DateTime nb of day between is less than one day and the date are equal in terms of day/month/year OR new date after date
-        if (dateTr.toUtc().isAfter(tr_.date!.toUtc()) ||
+        if (dateTr.toUtc().isAfter(dateTr_.toUtc()) ||
             (diff.inDays < 1 &&
-                Tools.areSameDay(dateTr.toUtc(), tr_.date!.toUtc()))) {
+                Tools.areSameDay(dateTr.toUtc(), dateTr_.toUtc()))) {
           idList.insert(i, tr.id.toString());
           if (i == idList.length - 1) {
             int bal =
